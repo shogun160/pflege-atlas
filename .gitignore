@@ -1,0 +1,16 @@
+# Brainstorming companion session files (local-only)
+.superpowers/
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+
+# Future Node.js / Next.js
+node_modules/
+.next/
+.env
+.env.local
+.env*.local
