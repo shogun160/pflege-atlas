@@ -3,7 +3,7 @@ import Image from 'next/image';
 export function Logo({ priority = false }: { priority?: boolean }) {
   return (
     <Image
-      src="/logo-compass-snake-transparent.png"
+      src="/logo-compass-snake-transparent.webp"
       alt="PflegeAtlas"
       width={1536}
       height={1024}

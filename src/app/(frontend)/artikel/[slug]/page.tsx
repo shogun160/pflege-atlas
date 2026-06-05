@@ -6,6 +6,7 @@ import { buildMedicalArticleJsonLd } from '@/lib/schema-org';
 import { ArticleLayout } from '@/components/ArticleLayout';
 import { ArticleTOC } from '@/components/ArticleTOC';
 import { ArticleDisclaimer } from '@/components/ArticleDisclaimer';
+import { SectionLabel } from '@/components/SectionLabel';
 
 export const dynamic = 'force-dynamic';
 
@@ -76,11 +77,11 @@ export default async function ArticlePage({ params }: Props) {
       }
     >
       <header className="mb-8">
-        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-accent">
+        <SectionLabel>
           {article.intent === 'bedside' && 'Schnelle Hilfe am Bett'}
           {article.intent === 'background' && 'Hintergrundwissen'}
           {article.intent === 'learning' && 'Lernen'}
-        </p>
+        </SectionLabel>
         <h1 className="mt-2 font-serif text-4xl font-semibold leading-tight text-ink">
           {article.title}
         </h1>

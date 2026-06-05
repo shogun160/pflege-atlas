@@ -1,3 +1,5 @@
+import { SectionLabel } from './SectionLabel';
+
 type Intent = {
   href: string;
   title: string;
@@ -37,9 +39,7 @@ const INTENTS: Intent[] = [
 export function IntentCards() {
   return (
     <section aria-label="Ich brauche…" className="mx-auto max-w-3xl">
-      <p className="mb-4 text-xs font-semibold uppercase tracking-[0.08em] text-accent">
-        Ich brauche…
-      </p>
+      <SectionLabel className="mb-4">Ich brauche…</SectionLabel>
       <ul className="grid gap-3">
         {INTENTS.map((intent) => (
           <li key={intent.href}>
