@@ -7,6 +7,11 @@ export const Articles: CollectionConfig = {
     useAsTitle: 'title',
     defaultColumns: ['title', 'status', 'lastReviewedAt', 'standardsBound'],
   },
+  // V1: `status` (Entwurf/In Review/Veröffentlicht/Archiviert) ist die
+  // alleinige Visibility-Quelle für die Read-Access-Rule unten. Payloads
+  // natives `_status` aus dem drafts-Workflow bleibt für interne Versionen
+  // erhalten, wird aber im Editorial-Flow nicht benutzt. Auf den nativen
+  // Draft-Workflow wechseln wir später mit dem Auth/Editorial-Plan.
   versions: {
     drafts: true,
     maxPerDoc: 50,
@@ -119,6 +124,10 @@ export const Articles: CollectionConfig = {
       type: 'select',
       label: 'Status',
       defaultValue: 'draft',
+      admin: {
+        description:
+          'Dieses Feld steuert die öffentliche Sichtbarkeit. Nur "Veröffentlicht" ist für Leser:innen sichtbar.',
+      },
       options: [
         { label: 'Entwurf', value: 'draft' },
         { label: 'In Review', value: 'in_review' },

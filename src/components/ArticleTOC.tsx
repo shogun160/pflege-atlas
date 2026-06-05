@@ -73,7 +73,7 @@ export function ArticleTOC({ sections, related = [], reviewedAt, reviewerName }:
           <span aria-hidden>{open ? '▴' : '▾'}</span>
         </button>
         {open && (
-          <div aria-hidden="true" className="mt-3 rounded-lg border border-blue-200 bg-blue-50/50 p-4">
+          <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50/50 p-4">
             {inner}
           </div>
         )}

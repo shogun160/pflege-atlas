@@ -226,6 +226,9 @@ export interface Article {
   reviewedBy?: (number | User)[] | null;
   lastReviewedAt?: string | null;
   standardsBound?: boolean | null;
+  /**
+   * Dieses Feld steuert die öffentliche Sichtbarkeit. Nur "Veröffentlicht" ist für Leser:innen sichtbar.
+   */
   status?: ('draft' | 'in_review' | 'published' | 'archived') | null;
   updatedAt: string;
   createdAt: string;

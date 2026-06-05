@@ -12,10 +12,12 @@ export default async function IndexPage() {
     depth: 0,
   });
 
+  const umlautMap: Record<string, string> = { Ä: 'A', Ö: 'O', Ü: 'U' };
   const grouped = new Map<string, typeof result.docs>();
   for (const doc of result.docs) {
     const letter = doc.title.charAt(0).toUpperCase();
-    const key = /[A-Z]/.test(letter) ? letter : '#';
+    const mapped = umlautMap[letter] ?? letter;
+    const key = /[A-Z]/.test(mapped) ? mapped : '#';
     const arr = grouped.get(key) ?? [];
     arr.push(doc);
     grouped.set(key, arr);

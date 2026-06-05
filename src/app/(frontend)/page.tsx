@@ -10,7 +10,10 @@ export default function HomePage() {
         Wissen für die professionelle Pflege. Frei. Geprüft. Praxisnah.
       </p>
 
-      <form action="/suche" method="get" className="mb-10">
+      {/* Chrome's eingebauter Password-Manager / Autofill annotiert <form>-Elemente
+          mit form_signature-Attributen vor der React-Hydration. Das ist kein
+          Mismatch in unserem Markup, daher unterdrücken wir hier die Warnung. */}
+      <form action="/suche" method="get" className="mb-10" suppressHydrationWarning>
         <label htmlFor="q" className="sr-only">
           Suche
         </label>
@@ -20,10 +23,19 @@ export default function HomePage() {
           name="q"
           placeholder={'🔍 Suche nach „Dekubitus“, „SIS“, „MD-Prüfung“…'}
           className="w-full rounded-lg border-2 border-blue-600 px-4 py-3 text-base"
+          suppressHydrationWarning
         />
       </form>
 
       <IntentCards />
+
+      <p className="mt-10 text-center text-sm text-gray-600">
+        Oder stöbere in{' '}
+        <a href="/index" className="font-medium text-blue-700 underline hover:text-blue-900">
+          allen Artikeln von A bis Z
+        </a>
+        .
+      </p>
     </div>
   )
 }
