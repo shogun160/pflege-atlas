@@ -1,12 +1,38 @@
 import type { Metadata } from 'next';
 import { SectionLabel } from '@/components/SectionLabel';
+import { SubmissionForm } from '@/components/SubmissionForm';
+import { getPayloadClient } from '@/lib/payload';
 
 export const metadata: Metadata = {
   title: 'Mitmachen – PflegeAtlas',
   description: 'Reiche einen neuen Artikel oder eine Korrektur ein.',
 };
 
-export default function EinreichenPage() {
+type SearchParams = { type?: 'correction' | 'new_article'; article?: string };
+
+export default async function EinreichenPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  const params = await searchParams;
+  const initialType: 'correction' | 'new_article' =
+    params.type === 'correction' ? 'correction' : 'new_article';
+  const initialArticleSlug = params.article || '';
+
+  const payload = await getPayloadClient();
+  const articles = await payload.find({
+    collection: 'articles',
+    sort: '-updatedAt',
+    limit: 50,
+    select: { slug: true, title: true },
+  });
+
+  const articleOptions = articles.docs.map((a: { slug: string; title: string }) => ({
+    slug: a.slug,
+    title: a.title,
+  }));
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-12">
       <SectionLabel className="mb-3">Mitmachen</SectionLabel>
@@ -14,57 +40,20 @@ export default function EinreichenPage() {
         Teile dein Pflege-Wissen
       </h1>
       <p className="mb-10 text-lg text-ink-muted">
-        PflegeAtlas lebt vom Wissen der Community. Du kannst auf zwei Wegen beitragen:
-      </p>
-
-      <section className="mb-10 grid gap-4 sm:grid-cols-2">
-        <div className="rounded-lg border border-rule bg-surface p-5">
-          <SectionLabel>Neuer Artikel</SectionLabel>
-          <h2 className="mt-2 font-serif text-xl font-semibold text-ink">
-            Etwas Neues schreiben
-          </h2>
-          <p className="mt-2 text-sm text-ink-muted">
-            Du hast Wissen oder eine Praxis-Anleitung, die hier noch fehlt? Reiche einen kompletten Artikel-Vorschlag ein.
-          </p>
-        </div>
-        <div className="rounded-lg border border-rule bg-surface p-5">
-          <SectionLabel>Korrektur</SectionLabel>
-          <h2 className="mt-2 font-serif text-xl font-semibold text-ink">
-            Bestehendes verbessern
-          </h2>
-          <p className="mt-2 text-sm text-ink-muted">
-            Du hast einen Fehler entdeckt oder kannst einen Artikel ergänzen? Korrekturen sind besonders willkommen.
-          </p>
-        </div>
-      </section>
-
-      <aside
-        role="note"
-        className="mb-10 border-l-[3px] border-brand bg-surface px-4 py-3 text-sm text-ink-muted"
-      >
-        <strong className="text-ink">Vor dem offiziellen Start:</strong>{' '}
-        Das Einreichungs-Formular kommt in Kürze. Bis dahin freuen wir uns über deine Mail an{' '}
-        <a
-          href="mailto:mitmachen@pflegeatlas.org"
-          className="text-brand underline underline-offset-2 hover:no-underline"
-        >
-          mitmachen@pflegeatlas.org
-        </a>
-        .
-      </aside>
-
-      <p className="text-sm text-ink-muted">
-        Alle Inhalte stehen unter{' '}
-        <a
+        Alle Inhalte stehen unter <a
           href="https://creativecommons.org/licenses/by-sa/4.0/deed.de"
           className="text-brand underline-offset-2 hover:underline"
           target="_blank"
           rel="noreferrer noopener"
-        >
-          CC BY-SA 4.0
-        </a>
-        . Mit dem Einreichen erklärst du dich mit dieser Lizenz einverstanden.
+        >CC BY-SA 4.0</a>. Mit dem Einreichen erklärst du dich mit dieser Lizenz einverstanden.
       </p>
+
+      <SubmissionForm
+        articles={articleOptions}
+        turnstileSiteKey={process.env.TURNSTILE_SITE_KEY ?? ''}
+        initialType={initialType}
+        initialArticleSlug={initialArticleSlug}
+      />
     </div>
   );
 }
