@@ -181,12 +181,14 @@ describe('buildEmailConfig', () => {
     expect(buildEmailConfig()).toBeUndefined();
   });
 
-  it('returns a resendAdapter instance when RESEND_API_KEY is set', () => {
+  it('returns a resend adapter factory when RESEND_API_KEY is set', () => {
     vi.stubEnv('RESEND_API_KEY', 're_test_xxx');
     vi.stubEnv('RESEND_FROM_ADDRESS', 'noreply@pflegeatlas.org');
-    const adapter = buildEmailConfig();
-    expect(adapter).toBeDefined();
-    expect(adapter).toHaveProperty('name');
+    const factory = buildEmailConfig();
+    expect(factory).toBeDefined();
+    expect(typeof factory).toBe('function');
+    const adapter = factory!();
+    expect(adapter).toHaveProperty('name', 'resend-rest');
     expect(adapter).toHaveProperty('defaultFromAddress', 'noreply@pflegeatlas.org');
   });
 
@@ -194,11 +196,14 @@ describe('buildEmailConfig', () => {
     vi.stubEnv('RESEND_API_KEY', 're_test_xxx');
     vi.stubEnv('RESEND_FROM_ADDRESS', 'noreply@pflegeatlas.org');
     vi.stubEnv('RESEND_FROM_NAME', '');
-    const adapter = buildEmailConfig();
+    const factory = buildEmailConfig();
+    const adapter = factory!();
     expect(adapter).toHaveProperty('defaultFromName', 'PflegeAtlas');
   });
 });
 ```
+
+**Erratum:** `resendAdapter()` aus `@payloadcms/email-resend@3.85` gibt eine **Factory-Funktion** zurück, kein Adapter-Object. Die Properties `name`/`defaultFromAddress`/`defaultFromName` existieren erst nach Aufruf der Factory (`factory!()`). Erste Plan-Version hatte Properties direkt am Factory-Return geprüft → 2 Tests failed. Korrigiert während Ausführung.
 
 - [ ] **Step 2: Run test to verify it fails**
 
