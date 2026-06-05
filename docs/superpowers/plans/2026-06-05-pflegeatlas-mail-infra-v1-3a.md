@@ -510,13 +510,13 @@ EOF
 **Files:**
 - Create: `.env.example`
 
-- [ ] **Step 1:** Prüfen ob `.env.example` schon existiert.
+- [ ] **Step 1:** Prüfen ob `.env.example` schon existiert. **Wichtig:** Die V1.2-Version mit projekt-spezifischen Dev-Defaults (`DATABASE_URI` mit `pflege:pflege_dev@localhost/pflegecommons`, `PAYLOAD_SECRET=change-me-to-a-long-random-string`) existiert seit Commit `ccde4a5`. Wenn vorhanden: **NICHT überschreiben**, nur die Mail-Sektion ergänzen.
 
 ```bash
-test -f .env.example && echo "exists — review first" || echo "does not exist — create new"
+test -f .env.example && echo "exists — append mail section only" || echo "does not exist — create new"
 ```
 
-- [ ] **Step 2: Write file**
+- [ ] **Step 2: Write file (oder Mail-Sektion appenden)**
 
 Create `.env.example`:
 
