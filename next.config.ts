@@ -18,6 +18,9 @@ const nextConfig: NextConfig = {
       {
         pathname: '/logo-*-transparent.png',
       },
+      {
+        pathname: '/logo-*.webp',
+      },
     ],
   },
   webpack: (webpackConfig) => {
