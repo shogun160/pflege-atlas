@@ -29,7 +29,7 @@ export async function submitAction(
 
   const payload = await getPayloadClient();
 
-  let relatedArticleId: string | undefined;
+  let relatedArticleId: number | undefined;
   let relatedArticleTitle: string | undefined;
   if (parsed.data.type === 'correction' && parsed.data.relatedArticleSlug) {
     const found = await payload.find({
@@ -40,7 +40,7 @@ export async function submitAction(
     if (!found.docs || found.docs.length === 0) {
       return { fieldErrors: { relatedArticleSlug: 'Artikel nicht gefunden.' } };
     }
-    relatedArticleId = String(found.docs[0].id);
+    relatedArticleId = found.docs[0].id;
     relatedArticleTitle = (found.docs[0] as { title?: string }).title;
   }
 
