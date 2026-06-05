@@ -64,6 +64,15 @@ describe('submitAction', () => {
     expect(createMock).not.toHaveBeenCalled();
   });
 
+  it('returns submitted values alongside fieldErrors so the form can preserve user input', async () => {
+    const result = await submitAction({}, fd({ ...validForm, subject: '' }));
+    expect(result.values).toMatchObject({
+      type: 'new_article',
+      subject: '',
+      body: validForm.body,
+    });
+  });
+
   it('calls payload.create on valid input', async () => {
     await expect(submitAction({}, fd(validForm))).rejects.toThrow('NEXT_REDIRECT');
     expect(createMock).toHaveBeenCalledTimes(1);

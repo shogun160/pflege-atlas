@@ -9,7 +9,26 @@ import { getPayloadClient } from '@/lib/payload';
 export type SubmitState = {
   fieldErrors?: Record<string, string>;
   error?: string;
+  values?: {
+    type?: string;
+    subject?: string;
+    body?: string;
+    submitterName?: string;
+    submitterEmail?: string;
+    relatedArticleSlug?: string;
+  };
 };
+
+function extractValues(raw: Record<string, string>): SubmitState['values'] {
+  return {
+    type: raw.type,
+    subject: raw.subject,
+    body: raw.body,
+    submitterName: raw.submitterName,
+    submitterEmail: raw.submitterEmail,
+    relatedArticleSlug: raw.relatedArticleSlug,
+  };
+}
 
 export async function submitAction(
   _prevState: SubmitState,
@@ -19,12 +38,15 @@ export async function submitAction(
   const parsed = SubmissionSchema.safeParse(raw);
 
   if (!parsed.success) {
-    return { fieldErrors: flattenZodErrors(parsed.error) };
+    return { fieldErrors: flattenZodErrors(parsed.error), values: extractValues(raw) };
   }
 
   const verified = await verifyTurnstileToken(parsed.data.turnstileToken);
   if (!verified) {
-    return { error: 'Captcha-Verifikation fehlgeschlagen. Bitte erneut versuchen.' };
+    return {
+      error: 'Captcha-Verifikation fehlgeschlagen. Bitte erneut versuchen.',
+      values: extractValues(raw),
+    };
   }
 
   const payload = await getPayloadClient();
@@ -38,7 +60,10 @@ export async function submitAction(
       limit: 1,
     });
     if (!found.docs || found.docs.length === 0) {
-      return { fieldErrors: { relatedArticleSlug: 'Artikel nicht gefunden.' } };
+      return {
+        fieldErrors: { relatedArticleSlug: 'Artikel nicht gefunden.' },
+        values: extractValues(raw),
+      };
     }
     relatedArticleId = found.docs[0].id;
     relatedArticleTitle = (found.docs[0] as { title?: string }).title;
@@ -60,7 +85,10 @@ export async function submitAction(
     });
   } catch (err) {
     console.error('Submission create failed', err);
-    return { error: 'Es gab ein Problem beim Senden. Bitte später erneut versuchen.' };
+    return {
+      error: 'Es gab ein Problem beim Senden. Bitte später erneut versuchen.',
+      values: extractValues(raw),
+    };
   }
 
   try {

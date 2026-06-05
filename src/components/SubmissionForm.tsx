@@ -87,7 +87,7 @@ export function SubmissionForm({
             id="field-type"
             name="type"
             required
-            defaultValue={initialType}
+            defaultValue={(state.values?.type as 'new_article' | 'correction') ?? initialType}
             onChange={(e) => setType(e.target.value as 'new_article' | 'correction')}
             className="mt-1 w-full rounded-md border border-rule bg-white p-2"
           >
@@ -105,7 +105,7 @@ export function SubmissionForm({
             <select
               id="field-relatedArticleSlug"
               name="relatedArticleSlug"
-              defaultValue={initialArticleSlug}
+              defaultValue={state.values?.relatedArticleSlug ?? initialArticleSlug}
               className="mt-1 w-full rounded-md border border-rule bg-white p-2"
             >
               <option value="">— wählen —</option>
@@ -130,6 +130,7 @@ export function SubmissionForm({
             required
             minLength={3}
             maxLength={200}
+            defaultValue={state.values?.subject ?? ''}
             className="mt-1 w-full rounded-md border border-rule bg-white p-2"
           />
           <FieldError name="subject" errors={state.fieldErrors} />
@@ -146,6 +147,7 @@ export function SubmissionForm({
             minLength={20}
             maxLength={20000}
             rows={10}
+            defaultValue={state.values?.body ?? ''}
             className="mt-1 w-full rounded-md border border-rule bg-white p-2"
           />
           <FieldError name="body" errors={state.fieldErrors} />
@@ -160,6 +162,7 @@ export function SubmissionForm({
             type="text"
             name="submitterName"
             maxLength={100}
+            defaultValue={state.values?.submitterName ?? ''}
             className="mt-1 w-full rounded-md border border-rule bg-white p-2"
           />
           <FieldError name="submitterName" errors={state.fieldErrors} />
@@ -173,6 +176,7 @@ export function SubmissionForm({
             id="field-submitterEmail"
             type="email"
             name="submitterEmail"
+            defaultValue={state.values?.submitterEmail ?? ''}
             className="mt-1 w-full rounded-md border border-rule bg-white p-2"
           />
           <FieldError name="submitterEmail" errors={state.fieldErrors} />
