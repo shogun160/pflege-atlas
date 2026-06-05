@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const article = result.docs[0];
   if (!article) return { title: 'Nicht gefunden' };
   return {
-    title: `${article.title} – PflegeCommons`,
+    title: `${article.title} – PflegeAtlas`,
     description: article.summary,
     openGraph: {
       title: article.title,
