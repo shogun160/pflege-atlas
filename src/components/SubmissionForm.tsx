@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useActionState, useState, type ReactNode } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Turnstile } from '@marsidev/react-turnstile';
 import { ErrorSummary } from './ErrorSummary';
@@ -48,6 +48,14 @@ function FieldError({ name, errors }: { name: string; errors?: Record<string, st
   );
 }
 
+function FieldHint({ id, children }: { id: string; children: ReactNode }) {
+  return (
+    <p id={id} className="mt-1 text-sm text-ink-muted">
+      {children}
+    </p>
+  );
+}
+
 export function SubmissionForm({
   articles,
   turnstileSiteKey,
@@ -55,8 +63,35 @@ export function SubmissionForm({
   initialArticleSlug = '',
 }: Props) {
   const [state, formAction] = useActionState(submitAction, initialState);
-  const [type, setType] = useState(initialType);
+
+  // Controlled fields. We track everything in local state so React 19's
+  // post-action form-reset does not wipe the user's input. On every action
+  // return we sync state from state.values via the render-time pattern below.
+  const [type, setType] = useState<'new_article' | 'correction'>(initialType);
+  const [subject, setSubject] = useState('');
+  const [body, setBody] = useState('');
+  const [relatedArticleSlug, setRelatedArticleSlug] = useState(initialArticleSlug);
+  const [submitterName, setSubmitterName] = useState('');
+  const [submitterEmail, setSubmitterEmail] = useState('');
   const [turnstileToken, setTurnstileToken] = useState('');
+
+  // Sync controlled fields from server action's echoed values. Render-time
+  // setState is the React-recommended pattern for "reset state on prop change"
+  // — it does one extra render synchronously, no useEffect cascade.
+  const [lastValues, setLastValues] = useState<SubmitState['values'] | undefined>(undefined);
+  if (state.values !== lastValues) {
+    setLastValues(state.values);
+    if (state.values) {
+      if (state.values.type === 'new_article' || state.values.type === 'correction') {
+        setType(state.values.type);
+      }
+      setSubject(state.values.subject ?? '');
+      setBody(state.values.body ?? '');
+      setRelatedArticleSlug(state.values.relatedArticleSlug ?? '');
+      setSubmitterName(state.values.submitterName ?? '');
+      setSubmitterEmail(state.values.submitterEmail ?? '');
+    }
+  }
 
   return (
     <>
@@ -87,7 +122,7 @@ export function SubmissionForm({
             id="field-type"
             name="type"
             required
-            defaultValue={(state.values?.type as 'new_article' | 'correction') ?? initialType}
+            value={type}
             onChange={(e) => setType(e.target.value as 'new_article' | 'correction')}
             className="mt-1 w-full rounded-md border border-rule bg-white p-2"
           >
@@ -105,7 +140,8 @@ export function SubmissionForm({
             <select
               id="field-relatedArticleSlug"
               name="relatedArticleSlug"
-              defaultValue={state.values?.relatedArticleSlug ?? initialArticleSlug}
+              value={relatedArticleSlug}
+              onChange={(e) => setRelatedArticleSlug(e.target.value)}
               className="mt-1 w-full rounded-md border border-rule bg-white p-2"
             >
               <option value="">— wählen —</option>
@@ -130,9 +166,14 @@ export function SubmissionForm({
             required
             minLength={3}
             maxLength={200}
-            defaultValue={state.values?.subject ?? ''}
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+            aria-describedby="hint-subject"
             className="mt-1 w-full rounded-md border border-rule bg-white p-2"
           />
+          <FieldHint id="hint-subject">
+            {subject.length} / 200 Zeichen{subject.length < 3 ? ' (min. 3)' : ''}
+          </FieldHint>
           <FieldError name="subject" errors={state.fieldErrors} />
         </div>
 
@@ -147,9 +188,14 @@ export function SubmissionForm({
             minLength={20}
             maxLength={20000}
             rows={10}
-            defaultValue={state.values?.body ?? ''}
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            aria-describedby="hint-body"
             className="mt-1 w-full rounded-md border border-rule bg-white p-2"
           />
+          <FieldHint id="hint-body">
+            {body.length.toLocaleString('de-DE')} / 20.000 Zeichen{body.length < 20 ? ' (min. 20)' : ''}
+          </FieldHint>
           <FieldError name="body" errors={state.fieldErrors} />
         </div>
 
@@ -162,9 +208,12 @@ export function SubmissionForm({
             type="text"
             name="submitterName"
             maxLength={100}
-            defaultValue={state.values?.submitterName ?? ''}
+            value={submitterName}
+            onChange={(e) => setSubmitterName(e.target.value)}
+            aria-describedby="hint-submitterName"
             className="mt-1 w-full rounded-md border border-rule bg-white p-2"
           />
+          <FieldHint id="hint-submitterName">Maximal 100 Zeichen.</FieldHint>
           <FieldError name="submitterName" errors={state.fieldErrors} />
         </div>
 
@@ -176,9 +225,14 @@ export function SubmissionForm({
             id="field-submitterEmail"
             type="email"
             name="submitterEmail"
-            defaultValue={state.values?.submitterEmail ?? ''}
+            value={submitterEmail}
+            onChange={(e) => setSubmitterEmail(e.target.value)}
+            aria-describedby="hint-submitterEmail"
             className="mt-1 w-full rounded-md border border-rule bg-white p-2"
           />
+          <FieldHint id="hint-submitterEmail">
+            Nur für Rückfragen. Wird nicht veröffentlicht und nicht für Newsletter genutzt.
+          </FieldHint>
           <FieldError name="submitterEmail" errors={state.fieldErrors} />
         </div>
 
