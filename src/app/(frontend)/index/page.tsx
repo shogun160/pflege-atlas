@@ -27,11 +27,15 @@ export default async function IndexPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-12">
-      <h1 className="mb-8 text-3xl font-bold">Alle Artikel A–Z</h1>
+      <h1 className="mb-8 font-serif text-3xl font-semibold text-ink">Alle Artikel A–Z</h1>
 
       <nav aria-label="A–Z" className="mb-10 flex flex-wrap gap-2">
         {letters.map((l) => (
-          <a key={l} href={`#${l}`} className="rounded bg-gray-100 px-3 py-1 text-sm">
+          <a
+            key={l}
+            href={`#${l}`}
+            className="rounded bg-surface border border-rule px-3 py-1 text-sm text-ink-muted transition-colors hover:bg-rule/30 hover:text-brand"
+          >
             {l}
           </a>
         ))}
@@ -39,14 +43,17 @@ export default async function IndexPage() {
 
       {letters.map((letter) => (
         <section key={letter} id={letter} className="mb-10">
-          <h2 className="mb-3 text-xl font-bold text-gray-900">{letter}</h2>
+          <h2 className="mb-3 font-serif text-2xl font-semibold text-ink">{letter}</h2>
           <ul className="space-y-2">
             {grouped.get(letter)!.map((doc) => (
               <li key={doc.id}>
-                <a href={`/artikel/${doc.slug}`} className="text-blue-700 hover:underline">
+                <a
+                  href={`/artikel/${doc.slug}`}
+                  className="text-brand underline underline-offset-2 hover:no-underline"
+                >
                   {doc.title}
                 </a>
-                <span className="ml-2 text-sm text-gray-600">{doc.summary}</span>
+                <span className="ml-2 text-sm text-ink-muted">{doc.summary}</span>
               </li>
             ))}
           </ul>
