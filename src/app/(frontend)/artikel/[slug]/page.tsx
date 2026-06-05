@@ -94,11 +94,11 @@ export default async function ArticlePage({ params }: Props) {
           slug: article.slug,
           summary: article.summary,
           authors,
-          datePublished: article.createdAt instanceof Date
-            ? article.createdAt.toISOString()
+          datePublished: (article.createdAt as any) instanceof Date
+            ? (article.createdAt as unknown as Date).toISOString()
             : article.createdAt,
-          dateModified: article.updatedAt instanceof Date
-            ? article.updatedAt.toISOString()
+          dateModified: (article.updatedAt as any) instanceof Date
+            ? (article.updatedAt as unknown as Date).toISOString()
             : article.updatedAt,
           siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000',
         });
