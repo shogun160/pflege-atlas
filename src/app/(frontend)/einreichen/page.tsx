@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { SectionLabel } from '@/components/SectionLabel';
 
 export const metadata: Metadata = {
   title: 'Mitmachen – PflegeAtlas',
@@ -8,9 +9,7 @@ export const metadata: Metadata = {
 export default function EinreichenPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-12">
-      <p className="mb-3 text-xs font-semibold uppercase tracking-[0.08em] text-accent">
-        Mitmachen
-      </p>
+      <SectionLabel className="mb-3">Mitmachen</SectionLabel>
       <h1 className="mb-6 font-serif text-3xl font-semibold leading-tight text-ink">
         Teile dein Pflege-Wissen
       </h1>
@@ -20,9 +19,7 @@ export default function EinreichenPage() {
 
       <section className="mb-10 grid gap-4 sm:grid-cols-2">
         <div className="rounded-lg border border-rule bg-surface p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-accent">
-            Neuer Artikel
-          </p>
+          <SectionLabel>Neuer Artikel</SectionLabel>
           <h2 className="mt-2 font-serif text-xl font-semibold text-ink">
             Etwas Neues schreiben
           </h2>
@@ -31,9 +28,7 @@ export default function EinreichenPage() {
           </p>
         </div>
         <div className="rounded-lg border border-rule bg-surface p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-accent">
-            Korrektur
-          </p>
+          <SectionLabel>Korrektur</SectionLabel>
           <h2 className="mt-2 font-serif text-xl font-semibold text-ink">
             Bestehendes verbessern
           </h2>

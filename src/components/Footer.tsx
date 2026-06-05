@@ -33,7 +33,7 @@ export function Footer() {
             Beitragen
           </a>
           <a
-            href="https://github.com/"
+            href="https://github.com/shogun160/pflege-atlas"
             className="hover:text-brand"
             target="_blank"
             rel="noreferrer noopener"

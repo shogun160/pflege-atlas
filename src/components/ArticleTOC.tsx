@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { SectionLabel } from './SectionLabel';
 
 type Section = { id: string; label: string };
 
@@ -16,9 +17,7 @@ export function ArticleTOC({ sections, related = [], reviewedAt, reviewerName }:
 
   const inner = (
     <>
-      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-accent">
-        Auf dieser Seite
-      </p>
+      <SectionLabel className="mb-2">Auf dieser Seite</SectionLabel>
       <ul className="mb-6 space-y-1">
         {sections.map((s) => (
           <li key={s.id}>
@@ -30,9 +29,7 @@ export function ArticleTOC({ sections, related = [], reviewedAt, reviewerName }:
       </ul>
       {related.length > 0 && (
         <>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-accent">
-            Verwandt
-          </p>
+          <SectionLabel className="mb-2">Verwandt</SectionLabel>
           <ul className="mb-6 space-y-1">
             {related.map((r) => (
               <li key={r.slug}>
@@ -49,7 +46,7 @@ export function ArticleTOC({ sections, related = [], reviewedAt, reviewerName }:
       )}
       {reviewedAt && (
         <div className="text-xs text-ink-muted">
-          <p className="font-semibold uppercase tracking-[0.08em] text-accent">Geprüft</p>
+          <SectionLabel>Geprüft</SectionLabel>
           <p>
             {reviewedAt}
             {reviewerName ? ` · ${reviewerName}` : ''}
