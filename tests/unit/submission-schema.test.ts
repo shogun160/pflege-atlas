@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { ZodError } from 'zod';
 import { SubmissionSchema, flattenZodErrors } from '@/lib/submission-schema';
 
 const validBase = {
@@ -97,5 +98,14 @@ describe('flattenZodErrors', () => {
       expect(typeof flat.subject).toBe('string');
       expect(flat.subject.length).toBeGreaterThan(0);
     }
+  });
+
+  it('keeps the first message when multiple issues target the same field', () => {
+    const err = new ZodError([
+      { code: 'custom', path: ['subject'], message: 'first message' },
+      { code: 'custom', path: ['subject'], message: 'second message' },
+    ]);
+    const flat = flattenZodErrors(err);
+    expect(flat.subject).toBe('first message');
   });
 });
