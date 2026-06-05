@@ -90,6 +90,12 @@ pnpm tsx scripts/send-test-mail.ts redaktion@pflegeatlas.org
 
 **Volle Setup-Anleitung** (Cloudflare Email Routing, Resend-Account, DNS-Records): siehe `docs/superpowers/specs/2026-06-05-pflegeatlas-mail-infra-v1-3a-design.md` §6.
 
+### Turnstile (Spam-Schutz Submission-Formular)
+
+Das öffentliche Submission-Formular unter `/einreichen` verwendet [Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/) als Spam-Schutz. Setup: Cloudflare-Dashboard → Turnstile → Site erstellen → Site Key und Secret Key in die ENV-Vars `TURNSTILE_SITE_KEY` und `TURNSTILE_SECRET_KEY` legen.
+
+Lokal ohne diese Vars läuft Turnstile im Bypass — das Formular akzeptiert jeden Submit. Production muss die Keys gesetzt haben.
+
 ## Beiträge
 
 Beiträge — Code wie Inhalt — sind willkommen. Bitte vorher kurz in [CONTRIBUTING.md](./CONTRIBUTING.md) lesen.
