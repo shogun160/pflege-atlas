@@ -9,6 +9,7 @@ import { Users } from './collections/Users'
 import { Articles } from './collections/Articles'
 import { Submissions } from './collections/Submissions'
 import { Media } from './collections/Media'
+import { buildEmailConfig } from './lib/email-config'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -32,5 +33,6 @@ export default buildConfig({
     },
   }),
   sharp,
+  email: buildEmailConfig(),
   plugins: [],
 })

@@ -24,6 +24,10 @@ Mit dem Einreichen stimmst du der Veröffentlichung unter [CC BY-SA 4.0](https:/
 
 Siehe [README.md](./README.md#lokales-setup) — Node.js 22+, pnpm 9+, Docker für Postgres.
 
+### Mail-Verhalten in Dev
+
+Ohne `RESEND_API_KEY` in `.env` schreibt Payload alle Mails in die Console — kein Setup nötig. Für die manuelle Verifikation des Resend-Pfads gibt es `scripts/send-test-mail.ts`; Details in `README.md#mail-setup`.
+
 ### Workflow
 
 1. Issue eröffnen oder einem bestehenden Issue zustimmen, bevor du an größeren Änderungen arbeitest.

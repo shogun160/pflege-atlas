@@ -74,6 +74,22 @@ tests/
 └── integration/            End-to-End gegen Postgres
 ```
 
+## Mail-Setup
+
+PflegeAtlas verwendet [Cloudflare Email Routing](https://www.cloudflare.com/products/email-routing/) für eingehende Mails (`redaktion@pflegeatlas.org`, `mitmachen@pflegeatlas.org`) und [Resend](https://resend.com) für ausgehende Mails über `noreply@pflegeatlas.org`.
+
+**Lokal entwickeln:** Du brauchst kein Mail-Setup. Wenn `RESEND_API_KEY` in deiner `.env` nicht gesetzt ist (Default), schreibt Payload alle Mails in die Server-Console — wie bisher.
+
+**Mail manuell testen:** Siehe `scripts/send-test-mail.ts`. Mit gesetztem API-Key:
+
+```bash
+RESEND_API_KEY=re_xxx \
+RESEND_FROM_ADDRESS=noreply@pflegeatlas.org \
+pnpm tsx scripts/send-test-mail.ts redaktion@pflegeatlas.org
+```
+
+**Volle Setup-Anleitung** (Cloudflare Email Routing, Resend-Account, DNS-Records): siehe `docs/superpowers/specs/2026-06-05-pflegeatlas-mail-infra-v1-3a-design.md` §6.
+
 ## Beiträge
 
 Beiträge — Code wie Inhalt — sind willkommen. Bitte vorher kurz in [CONTRIBUTING.md](./CONTRIBUTING.md) lesen.
