@@ -2,6 +2,7 @@ import React from 'react'
 import { IBM_Plex_Serif, IBM_Plex_Sans } from 'next/font/google'
 import './styles.css'
 import { Footer } from '@/components/Footer'
+import { Wordmark } from '@/components/Wordmark'
 
 const plexSerif = IBM_Plex_Serif({
   subsets: ['latin'],
@@ -29,10 +30,7 @@ export default function FrontendLayout({ children }: { children: React.ReactNode
         <header className="border-b border-rule py-4">
           <div className="mx-auto max-w-6xl px-4">
             <a href="/" className="inline-block">
-              {/* Wordmark goes here in Task 3 */}
-              <span className="font-serif text-xl font-medium text-brand">
-                Pflege<span className="text-accent">·</span>Atlas
-              </span>
+              <Wordmark size="md" />
             </a>
           </div>
         </header>
