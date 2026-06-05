@@ -1,6 +1,8 @@
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { RichText } from '@payloadcms/richtext-lexical/react';
 import { getPayloadClient } from '@/lib/payload';
+import { buildMedicalArticleJsonLd } from '@/lib/schema-org';
 import { ArticleLayout } from '@/components/ArticleLayout';
 import { ArticleTOC } from '@/components/ArticleTOC';
 import { ArticleDisclaimer } from '@/components/ArticleDisclaimer';
@@ -8,6 +10,29 @@ import { ArticleDisclaimer } from '@/components/ArticleDisclaimer';
 export const dynamic = 'force-dynamic';
 
 type Props = { params: Promise<{ slug: string }> };
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
+  const payload = await getPayloadClient();
+  const result = await payload.find({
+    collection: 'articles',
+    where: { and: [{ slug: { equals: slug } }, { status: { equals: 'published' } }] },
+    limit: 1,
+    depth: 0,
+  });
+  const article = result.docs[0];
+  if (!article) return { title: 'Nicht gefunden' };
+  return {
+    title: `${article.title} – PflegeCommons`,
+    description: article.summary,
+    openGraph: {
+      title: article.title,
+      description: article.summary,
+      type: 'article',
+      locale: 'de_DE',
+    },
+  };
+}
 
 export default async function ArticlePage({ params }: Props) {
   const { slug } = await params;
@@ -59,6 +84,31 @@ export default async function ArticlePage({ params }: Props) {
         <h1 className="mt-1 text-3xl font-bold text-gray-900">{article.title}</h1>
         <p className="mt-2 text-gray-600">{article.summary}</p>
       </header>
+
+      {(() => {
+        const authors = (Array.isArray(article.authors) ? article.authors : [])
+          .map((a: any) => (typeof a === 'object' ? a.displayName : null))
+          .filter(Boolean) as string[];
+        const json = buildMedicalArticleJsonLd({
+          title: article.title,
+          slug: article.slug,
+          summary: article.summary,
+          authors,
+          datePublished: article.createdAt instanceof Date
+            ? article.createdAt.toISOString()
+            : article.createdAt,
+          dateModified: article.updatedAt instanceof Date
+            ? article.updatedAt.toISOString()
+            : article.updatedAt,
+          siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000',
+        });
+        return (
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(json).replace(/</g, '\\u003c') }}
+          />
+        );
+      })()}
 
       <ArticleDisclaimer />
 
