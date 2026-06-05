@@ -4,7 +4,7 @@ export function Footer() {
       <div className="mx-auto max-w-6xl px-4">
         <p className="text-sm text-gray-700">
           <strong>Hinweis:</strong>{' '}
-          Inhalte ersetzt keine ärztliche oder pflegerische Beurteilung im Einzelfall. Im Zweifel
+          Inhalte ersetzen keine ärztliche oder pflegerische Beurteilung im Einzelfall. Im Zweifel
           immer Fachkraft, Arzt oder Notruf konsultieren.
         </p>
         <p className="mt-4 text-sm text-gray-600">

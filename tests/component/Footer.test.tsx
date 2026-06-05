@@ -11,7 +11,7 @@ describe('Footer', () => {
   it('zeigt einen Disclaimer-Hinweis', () => {
     render(<Footer />);
     const paragraph = screen.getByText(/Hinweis:/).closest('p');
-    expect(paragraph?.textContent).toMatch(/ersetzt keine ärztliche oder pflegerische Beurteilung/i);
+    expect(paragraph?.textContent).toMatch(/ersetzen keine ärztliche oder pflegerische Beurteilung/i);
   });
 
   it('hat Links zu Impressum, Datenschutz, GitHub-Mirror', () => {
