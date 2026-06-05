@@ -135,11 +135,17 @@ export default async function ArticlePage({ params }: Props) {
       </section>
 
       <footer className="mt-16 border-t border-rule pt-6 text-sm text-ink-muted">
-        <a href="#" className="text-brand underline-offset-2 hover:underline">
+        <a
+          href="/einreichen?type=correction"
+          className="text-brand underline-offset-2 hover:underline"
+        >
           Korrektur vorschlagen
         </a>{' '}
         ·{' '}
-        <a href="#" className="text-brand underline-offset-2 hover:underline">
+        <a
+          href="/einreichen?type=new_article"
+          className="text-brand underline-offset-2 hover:underline"
+        >
           Neuen Artikel zu verwandtem Thema schreiben
         </a>
       </footer>
