@@ -1,6 +1,17 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
-:root {
-  --color-brand: #2563eb;
+@theme {
+  /* Colors */
+  --color-surface: #f7f4ee;
+  --color-brand: #1f5e6d;
+  --color-accent: #b8553d;
+  --color-ink: #1f2937;
+  --color-ink-muted: #4b5563;
+  --color-rule: #e8e2d4;
+
+  /* Font families (var() bindings filled by next/font on <html>) */
+  --font-serif: var(--font-plex-serif), Georgia, "Times New Roman", serif;
+  --font-sans: var(--font-plex-sans), system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
