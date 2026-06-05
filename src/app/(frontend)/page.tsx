@@ -2,13 +2,10 @@ import { IntentCards } from '@/components/IntentCards'
 
 export default function HomePage() {
   return (
-    <div className="mx-auto max-w-3xl px-4 py-16">
-      <h1 className="mb-3 text-center font-serif text-4xl font-semibold text-ink">
-        PflegeAtlas
-      </h1>
-      <p className="mb-10 text-center text-lg text-ink-muted">
+    <div className="mx-auto max-w-3xl px-4 -mt-12 pb-24">
+      <h1 className="mb-10 text-center text-lg text-ink-muted">
         Wissen für die professionelle Pflege. Frei. Geprüft. Praxisnah.
-      </p>
+      </h1>
 
       {/* Chrome's eingebauter Password-Manager / Autofill annotiert <form>-Elemente
           mit form_signature-Attributen vor der React-Hydration. Das ist kein
@@ -29,13 +26,22 @@ export default function HomePage() {
 
       <IntentCards />
 
-      <p className="mt-12 text-center text-sm text-ink-muted">
-        Oder stöbere in{' '}
-        <a href="/index" className="font-medium text-brand underline underline-offset-2 hover:no-underline">
-          allen Artikeln von A bis Z
+      <section aria-label="Lesen & Mitmachen" className="mt-12 grid gap-3 sm:grid-cols-2">
+        <a
+          href="/index"
+          className="block rounded-lg border border-rule bg-surface p-4 transition-colors hover:bg-rule/30"
+        >
+          <div className="text-base font-medium text-ink">Stöbern</div>
+          <div className="mt-1 text-sm text-ink-muted">Alle Artikel von A bis Z durchsuchen</div>
         </a>
-        .
-      </p>
+        <a
+          href="/einreichen"
+          className="block rounded-lg border border-rule bg-surface p-4 transition-colors hover:bg-rule/30"
+        >
+          <div className="text-base font-medium text-ink">Mitmachen</div>
+          <div className="mt-1 text-sm text-ink-muted">Neuen Artikel oder Korrektur einreichen</div>
+        </a>
+      </section>
     </div>
   )
 }

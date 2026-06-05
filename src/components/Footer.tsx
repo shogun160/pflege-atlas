@@ -29,6 +29,9 @@ export function Footer() {
           <a href="/datenschutz" className="hover:text-brand">
             Datenschutz
           </a>
+          <a href="/einreichen" className="hover:text-brand">
+            Beitragen
+          </a>
           <a
             href="https://github.com/"
             className="hover:text-brand"
