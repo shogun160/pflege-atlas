@@ -49,7 +49,7 @@ export function ArticleTOC({ sections, related = [], reviewedAt, reviewerName }:
       )}
       {reviewedAt && (
         <div className="text-xs text-ink-muted">
-          <p className="font-semibold uppercase tracking-wider">Geprüft</p>
+          <p className="font-semibold uppercase tracking-[0.08em] text-accent">Geprüft</p>
           <p>
             {reviewedAt}
             {reviewerName ? ` · ${reviewerName}` : ''}
