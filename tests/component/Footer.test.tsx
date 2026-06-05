@@ -20,4 +20,10 @@ describe('Footer', () => {
     expect(screen.getByRole('link', { name: /Datenschutz/i })).toHaveAttribute('href', '/datenschutz');
     expect(screen.getByRole('link', { name: /Open Source/i })).toBeInTheDocument();
   });
+
+  it('rendert die Wordmark im Footer', () => {
+    render(<Footer />);
+    expect(screen.getByText('Pflege')).toBeInTheDocument();
+    expect(screen.getByText('Atlas')).toBeInTheDocument();
+  });
 });

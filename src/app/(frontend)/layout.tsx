@@ -1,22 +1,36 @@
 import React from 'react'
+import { IBM_Plex_Serif, IBM_Plex_Sans } from 'next/font/google'
 import './styles.css'
 import { Footer } from '@/components/Footer'
+import { Logo } from '@/components/Logo'
+
+const plexSerif = IBM_Plex_Serif({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  display: 'swap',
+  variable: '--font-plex-serif',
+})
+
+const plexSans = IBM_Plex_Sans({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  display: 'swap',
+  variable: '--font-plex-sans',
+})
 
 export const metadata = {
+  title: 'PflegeAtlas',
   description: 'Wissen für die professionelle Pflege. Frei. Geprüft. Praxisnah.',
-  title: 'PflegeCommons',
 }
 
 export default function FrontendLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="de">
-      <body className="min-h-screen flex flex-col">
-        <header className="border-b border-gray-200 py-4">
-          <div className="mx-auto max-w-6xl px-4">
-            <a href="/" className="font-bold text-lg">
-              PflegeCommons
-            </a>
-          </div>
+    <html lang="de" className={`${plexSerif.variable} ${plexSans.variable}`}>
+      <body className="min-h-screen flex flex-col bg-surface font-sans text-ink">
+        <header className="mx-auto w-full max-w-6xl px-4 flex justify-center">
+          <a href="/" className="inline-block">
+            <Logo priority />
+          </a>
         </header>
         <main className="flex-1">{children}</main>
         <Footer />

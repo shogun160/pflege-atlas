@@ -2,7 +2,7 @@ export function ArticleDisclaimer() {
   return (
     <aside
       role="note"
-      className="my-6 rounded border-l-4 border-amber-500 bg-amber-50 p-4 text-sm text-amber-900"
+      className="mb-8 border-l-[3px] border-brand bg-surface px-4 py-3 text-sm text-ink-muted"
     >
       Dieser Artikel ersetzt keine ärztliche oder pflegerische Beurteilung im
       Einzelfall. Im akuten Notfall: 112.

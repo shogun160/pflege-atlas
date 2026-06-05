@@ -11,25 +11,25 @@ const INTENTS: Intent[] = [
     href: '/intent/bedside',
     title: '…schnelle Hilfe am Bett',
     subtitle: 'Pflegetechniken, Notfälle, Checklisten',
-    accent: 'border-blue-500',
+    accent: 'border-rose-500 bg-rose-50 hover:bg-rose-100',
   },
   {
     href: '/intent/background',
     title: '…Hintergrundwissen',
     subtitle: 'Krankheitsbilder, Erklärungen, Pflegeprozess',
-    accent: 'border-emerald-500',
+    accent: 'border-emerald-600 bg-emerald-50 hover:bg-emerald-100',
   },
   {
     href: '/intent/learning',
     title: '…etwas zum Lernen',
     subtitle: 'Ausbildungsthemen, Quizze',
-    accent: 'border-amber-500',
+    accent: 'border-amber-500 bg-amber-50 hover:bg-amber-100',
   },
   {
     href: '/qm',
     title: '…QM- & Pflegedienst-Tools 🔒',
     subtitle: 'Vorlagen, SIS, Audit-Hilfen (für Pflegedienste, kostenpflichtig)',
-    accent: 'border-violet-500',
+    accent: 'border-indigo-500 bg-indigo-50 hover:bg-indigo-100',
     paid: true,
   },
 ];
@@ -37,7 +37,7 @@ const INTENTS: Intent[] = [
 export function IntentCards() {
   return (
     <section aria-label="Ich brauche…" className="mx-auto max-w-3xl">
-      <p className="mb-4 text-sm uppercase tracking-wider text-gray-500">
+      <p className="mb-4 text-xs font-semibold uppercase tracking-[0.08em] text-accent">
         Ich brauche…
       </p>
       <ul className="grid gap-3">
@@ -45,10 +45,10 @@ export function IntentCards() {
           <li key={intent.href}>
             <a
               href={intent.href}
-              className={`block rounded border-l-4 bg-gray-50 p-4 hover:bg-gray-100 ${intent.accent}`}
+              className={`block rounded-lg border p-4 transition-colors ${intent.accent}`}
             >
-              <div className="font-semibold text-gray-900">{intent.title}</div>
-              <div className="mt-1 text-sm text-gray-600">{intent.subtitle}</div>
+              <div className="text-base font-medium text-ink">{intent.title}</div>
+              <div className="mt-1 text-sm text-ink-muted">{intent.subtitle}</div>
             </a>
           </li>
         ))}

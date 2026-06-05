@@ -1,6 +1,6 @@
-# Payload Blank Template
+# PflegeAtlas
 
-This template comes configured with the bare minimum to get started on anything you need.
+Offene, qualitätsgesicherte Wissensplattform für die professionelle Pflege. Inhalte unter CC BY-SA 4.0.
 
 ## Quick start
 

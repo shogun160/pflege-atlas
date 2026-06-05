@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const article = result.docs[0];
   if (!article) return { title: 'Nicht gefunden' };
   return {
-    title: `${article.title} – PflegeCommons`,
+    title: `${article.title} – PflegeAtlas`,
     description: article.summary,
     openGraph: {
       title: article.title,
@@ -75,14 +75,16 @@ export default async function ArticlePage({ params }: Props) {
         />
       }
     >
-      <header className="mb-6">
-        <p className="text-xs uppercase tracking-wider text-gray-500">
+      <header className="mb-8">
+        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-accent">
           {article.intent === 'bedside' && 'Schnelle Hilfe am Bett'}
           {article.intent === 'background' && 'Hintergrundwissen'}
           {article.intent === 'learning' && 'Lernen'}
         </p>
-        <h1 className="mt-1 text-3xl font-bold text-gray-900">{article.title}</h1>
-        <p className="mt-2 text-gray-600">{article.summary}</p>
+        <h1 className="mt-2 font-serif text-4xl font-semibold leading-tight text-ink">
+          {article.title}
+        </h1>
+        <p className="mt-3 text-lg text-ink-muted">{article.summary}</p>
       </header>
 
       {(() => {
@@ -112,32 +114,38 @@ export default async function ArticlePage({ params }: Props) {
 
       <ArticleDisclaimer />
 
-      <section id="definition" className="mb-8">
-        <h2 className="text-xl font-semibold">1. Definition</h2>
+      <section id="definition" className="mb-10">
+        <h2 className="font-serif text-2xl font-semibold text-ink">1. Definition</h2>
         <RichText data={article.definition as any} />
       </section>
 
-      <section id="praxis" className="mb-8">
-        <h2 className="text-xl font-semibold">2. Praxis</h2>
+      <section id="praxis" className="mb-10">
+        <h2 className="font-serif text-2xl font-semibold text-ink">2. Praxis</h2>
         <RichText data={article.praxis as any} />
       </section>
 
-      <section id="risiken" className="mb-8">
-        <h2 className="text-xl font-semibold">3. Risiken &amp; Fallstricke</h2>
+      <section id="risiken" className="mb-10">
+        <h2 className="font-serif text-2xl font-semibold text-ink">3. Risiken &amp; Fallstricke</h2>
         <RichText data={article.risiken as any} />
       </section>
 
-      <section id="quellen" className="mb-8">
-        <h2 className="text-xl font-semibold">4. Quellen &amp; Weiterführendes</h2>
+      <section id="quellen" className="mb-10">
+        <h2 className="font-serif text-2xl font-semibold text-ink">4. Quellen &amp; Weiterführendes</h2>
         <RichText data={article.quellen as any} />
       </section>
 
-      <footer className="mt-12 border-t border-gray-200 pt-6 text-sm text-gray-600">
-        <a href="#" className="underline">
+      <footer className="mt-16 border-t border-rule pt-6 text-sm text-ink-muted">
+        <a
+          href="/einreichen?type=correction"
+          className="text-brand underline-offset-2 hover:underline"
+        >
           Korrektur vorschlagen
         </a>{' '}
         ·{' '}
-        <a href="#" className="underline">
+        <a
+          href="/einreichen?type=new_article"
+          className="text-brand underline-offset-2 hover:underline"
+        >
           Neuen Artikel zu verwandtem Thema schreiben
         </a>
       </footer>
