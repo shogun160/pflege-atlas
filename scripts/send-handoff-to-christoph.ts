@@ -136,6 +136,8 @@ async function main(): Promise<void> {
   });
 
   console.log('Sent:', JSON.stringify(result, null, 2));
+  // Payload keeps DB connections open; force-exit so the CLI returns to the shell.
+  process.exit(0);
 }
 
 const isCli = import.meta.url === `file://${process.argv[1]}`;
