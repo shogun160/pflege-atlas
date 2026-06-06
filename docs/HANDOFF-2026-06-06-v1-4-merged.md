@@ -103,15 +103,39 @@ Im Repo, Spec + Plan für V1.4:
 
 ---
 
-## Was Oliver in der Lounge-Zeit machen kann
+## V1.5-Vorklärungen (am 2026-06-06 entschieden)
 
-- Plan-Wahl in Ruhe überlegen (V1.5 vs. DSGVO vs. V1.6 vs. Meilisearch)
-- Wenn V1.5 (GitHub-PRs) gewünscht: vorab eine Liste von Punkten sammeln, die für ihn klären sollten:
-  - GitHub-Org-Setup (Bot-Account oder personal)
-  - Articles im Repo spiegeln: ja/nein/wie
-  - DSGVO-Position für PR-Inhalte (Reason-Feld könnte PII enthalten)
-  - Wer macht Merges (nur Oliver, oder Christoph auch via Collaborator-Permission)
-- Nichts ist erzwungen — der Stand ist sauber, V1.4 ist auf `main`.
+Wenn V1.5 (Submissions-als-PRs) die nächste Plan-Wahl wird, sind diese vier Punkte schon geklärt — Brainstorming kann darauf aufsetzen:
+
+1. **GitHub-Auth: GitHub App unter Personal Account `shogun160`** (kein Org-Move, kein Bot-User-Account)
+   - Permissions: Contents R/W, Pull Requests R/W, Metadata R (per-Repo)
+   - Private Key als `.pem`-Datei in 1Password, in Production als base64-ENV-Var
+   - ENV-Vars: `GITHUB_APP_ID`, `GITHUB_APP_INSTALLATION_ID`, `GITHUB_APP_PRIVATE_KEY`
+   - Library: `@octokit/auth-app` + `@octokit/rest`
+   - Christoph bleibt wie heute Write-Collaborator (`primus-homeassistant`)
+   - Org-Move (`github.com/pflegeatlas/...`) bewusst auf später verschoben — würde sich lohnen, wenn V2 QM-Tool als eigenes Repo kommt
+
+2. **Articles als Markdown im Repo gespiegelt** (`content/articles/<slug>.md`)
+   - Frontmatter mit title/intent/summary/lastReviewedAt/standardsBound
+   - Body: 4 Sektionen als Markdown-Headings (`## Definition`, etc.)
+   - Sync-Layer: Lexical→Markdown beim Article-Save (Payload-Hook oder Cron); reduzierte Toolbar (Bold/Italic/Listen/Links) ist verlustfrei mappbar
+   - Bei Lexical-Version-Updates: Sync-Layer testen, weil JSON-Format driften kann
+
+3. **PR-DSGVO: Submission-ID-Verlinkung**
+   - PR-Body enthält Link auf Payload-Admin (`/admin/collections/submissions/<id>`)
+   - **Keine** PII (submitterName, submitterEmail) im PR-Body oder Commit-Metadaten
+   - `correctionReason` darf rein (fachliche Begründung, kein PII per se — aber bei V1.5-Spec nochmal explizit checken)
+   - Submitter-Daten bleiben in der DB, Christoph kontaktiert via Admin
+
+4. **Merges: Oliver + Christoph**
+   - Christoph behält `write`-Permission, darf Inhalts-PRs (von Submissions) selbst mergen
+   - Oliver bleibt für Code-PRs zuständig
+   - Lightweight-Konvention im CONTRIBUTING.md statt formaler CODEOWNERS-Datei
+
+## Sonst kein Erzwungenes
+
+- Stand ist sauber, V1.4 ist auf `main`.
+- Plan-Wahl in einer Woche völlig offen — auch DSGVO-Track oder Meilisearch sind valide statt V1.5.
 
 ## Repo-Convention
 
