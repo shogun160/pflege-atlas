@@ -1,29 +1,80 @@
 import { z, ZodError } from 'zod';
 
-export const SubmissionSchema = z
+const Section = z.enum(['definition', 'praxis', 'risiken', 'quellen']);
+export type SubmissionSection = z.infer<typeof Section>;
+
+const LexicalJsonString = z
+  .string()
+  .min(1, 'Inhalt fehlt.')
+  .refine(
+    (s) => {
+      try {
+        const parsed = JSON.parse(s);
+        return parsed && typeof parsed === 'object' && parsed.type === 'root';
+      } catch {
+        return false;
+      }
+    },
+    { message: 'Ungültiger Editor-Inhalt.' },
+  );
+
+const CommonFields = {
+  submitterName: z.string().trim().max(100, 'Maximal 100 Zeichen.').optional(),
+  submitterEmail: z
+    .string()
+    .trim()
+    .email('Keine gültige E-Mail-Adresse.')
+    .optional()
+    .or(z.literal('')),
+  turnstileToken: z.string().min(1, 'Captcha-Token fehlt.'),
+};
+
+const NewArticleSchema = z.object({
+  type: z.literal('new_article'),
+  proposedTitle: z
+    .string()
+    .trim()
+    .min(3, 'Bitte mindestens 3 Zeichen.')
+    .max(200, 'Maximal 200 Zeichen.'),
+  proposedIntent: z.enum(['bedside', 'background', 'learning']).optional(),
+  proposedSummary: z
+    .string()
+    .trim()
+    .max(280, 'Maximal 280 Zeichen.')
+    .optional()
+    .or(z.literal('')),
+  proposedDefinition: LexicalJsonString,
+  proposedPraxis: LexicalJsonString,
+  proposedRisiken: LexicalJsonString,
+  proposedQuellen: LexicalJsonString,
+  ...CommonFields,
+});
+
+const CorrectionSchema = z
   .object({
-    type: z.enum(['new_article', 'correction']),
-    subject: z.string().trim().min(3, 'Bitte mindestens 3 Zeichen.').max(200, 'Maximal 200 Zeichen.'),
-    relatedArticleSlug: z.string().trim().optional(),
-    body: z.string().trim().min(20, 'Bitte mindestens 20 Zeichen.').max(20000, 'Maximal 20000 Zeichen.'),
-    submitterName: z.string().trim().max(100, 'Maximal 100 Zeichen.').optional(),
-    submitterEmail: z
-      .string()
-      .trim()
-      .email('Keine gültige E-Mail-Adresse.')
-      .optional()
-      .or(z.literal('')),
-    turnstileToken: z.string().min(1, 'Captcha-Token fehlt.'),
+    type: z.literal('correction'),
+    relatedArticleSlug: z.string().trim().min(1, 'Artikel auswählen.'),
+    selectedSections: z.array(Section).min(1, 'Mindestens eine Sektion auswählen.'),
+    editedDefinition: LexicalJsonString.optional(),
+    editedPraxis: LexicalJsonString.optional(),
+    editedRisiken: LexicalJsonString.optional(),
+    editedQuellen: LexicalJsonString.optional(),
+    correctionReason: z.string().trim().max(2000, 'Maximal 2000 Zeichen.').optional(),
+    ...CommonFields,
   })
   .refine(
     (data) =>
-      data.type !== 'correction' ||
-      (typeof data.relatedArticleSlug === 'string' && data.relatedArticleSlug.length > 0),
+      data.selectedSections.every((s) => {
+        const key = `edited${s.charAt(0).toUpperCase()}${s.slice(1)}` as keyof typeof data;
+        return typeof data[key] === 'string' && (data[key] as string).length > 0;
+      }),
     {
-      path: ['relatedArticleSlug'],
-      message: 'Bei Korrektur ist der bezogene Artikel Pflicht.',
+      path: ['selectedSections'],
+      message: 'Editor-Inhalt fehlt für eine ausgewählte Sektion.',
     },
   );
+
+export const SubmissionSchema = z.discriminatedUnion('type', [NewArticleSchema, CorrectionSchema]);
 
 export type SubmissionInput = z.infer<typeof SubmissionSchema>;
 

@@ -241,9 +241,135 @@ export interface Article {
 export interface Submission {
   id: number;
   type: 'new_article' | 'correction';
-  subject: string;
+  /**
+   * Wird automatisch gesetzt.
+   */
+  displayTitle?: string | null;
   relatedArticle?: (number | null) | Article;
-  body: string;
+  proposedTitle?: string | null;
+  proposedIntent?: ('bedside' | 'background' | 'learning') | null;
+  proposedSummary?: string | null;
+  proposedDefinition?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  proposedPraxis?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  proposedRisiken?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  proposedQuellen?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  editedDefinition?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  editedPraxis?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  editedRisiken?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  editedQuellen?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  correctionReason?: string | null;
   submitterName?: string | null;
   submitterEmail?: string | null;
   reviewStatus?: ('pending' | 'in_review' | 'accepted' | 'rejected') | null;
@@ -405,9 +531,20 @@ export interface ArticlesSelect<T extends boolean = true> {
  */
 export interface SubmissionsSelect<T extends boolean = true> {
   type?: T;
-  subject?: T;
+  displayTitle?: T;
   relatedArticle?: T;
-  body?: T;
+  proposedTitle?: T;
+  proposedIntent?: T;
+  proposedSummary?: T;
+  proposedDefinition?: T;
+  proposedPraxis?: T;
+  proposedRisiken?: T;
+  proposedQuellen?: T;
+  editedDefinition?: T;
+  editedPraxis?: T;
+  editedRisiken?: T;
+  editedQuellen?: T;
+  correctionReason?: T;
   submitterName?: T;
   submitterEmail?: T;
   reviewStatus?: T;

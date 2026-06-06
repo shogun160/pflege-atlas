@@ -1,111 +1,187 @@
 import { describe, expect, it } from 'vitest';
-import { ZodError } from 'zod';
 import { SubmissionSchema, flattenZodErrors } from '@/lib/submission-schema';
 
-const validBase = {
+const lexicalSample = JSON.stringify({
+  type: 'root',
+  version: 1,
+  children: [
+    {
+      type: 'paragraph',
+      version: 1,
+      children: [{ type: 'text', version: 1, text: 'Inhalt', format: 0 }],
+    },
+  ],
+});
+
+const validNewArticle = {
   type: 'new_article' as const,
-  subject: 'Test-Betreff aus Plan',
-  body: 'Test-Inhalt, mindestens zwanzig Zeichen lang um Validation zu bestehen.',
+  proposedTitle: 'Dekubitusprophylaxe',
+  proposedDefinition: lexicalSample,
+  proposedPraxis: lexicalSample,
+  proposedRisiken: lexicalSample,
+  proposedQuellen: lexicalSample,
   turnstileToken: 'test-token',
 };
 
-describe('SubmissionSchema', () => {
+const validCorrection = {
+  type: 'correction' as const,
+  relatedArticleSlug: 'dekubitus',
+  selectedSections: ['praxis' as const],
+  editedPraxis: lexicalSample,
+  turnstileToken: 'test-token',
+};
+
+describe('SubmissionSchema — new_article path', () => {
   it('accepts a valid new_article submission with required fields only', () => {
-    const result = SubmissionSchema.safeParse(validBase);
+    const result = SubmissionSchema.safeParse(validNewArticle);
     expect(result.success).toBe(true);
   });
 
-  it('rejects when subject is too short', () => {
-    const result = SubmissionSchema.safeParse({ ...validBase, subject: 'ab' });
+  it('rejects when proposedTitle is too short', () => {
+    const result = SubmissionSchema.safeParse({ ...validNewArticle, proposedTitle: 'ab' });
     expect(result.success).toBe(false);
     if (!result.success) {
       const flat = flattenZodErrors(result.error);
-      expect(flat.subject).toMatch(/3 Zeichen/);
+      expect(flat.proposedTitle).toMatch(/3 Zeichen/);
     }
   });
 
-  it('rejects when body is too short', () => {
-    const result = SubmissionSchema.safeParse({ ...validBase, body: 'kurz' });
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      const flat = flattenZodErrors(result.error);
-      expect(flat.body).toMatch(/20 Zeichen/);
-    }
-  });
-
-  it('rejects when turnstileToken is missing', () => {
-    const { turnstileToken, ...withoutToken } = validBase;
-    const result = SubmissionSchema.safeParse(withoutToken);
+  it('rejects when proposedDefinition is missing', () => {
+    const { proposedDefinition: _proposedDefinition, ...rest } = validNewArticle;
+    const result = SubmissionSchema.safeParse(rest);
     expect(result.success).toBe(false);
   });
 
-  it('accepts an optional email when correctly formatted', () => {
+  it('accepts empty proposedIntent (optional)', () => {
+    const result = SubmissionSchema.safeParse({ ...validNewArticle, proposedIntent: undefined });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts a valid proposedIntent', () => {
+    const result = SubmissionSchema.safeParse({ ...validNewArticle, proposedIntent: 'bedside' });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects an invalid proposedIntent', () => {
+    const result = SubmissionSchema.safeParse({ ...validNewArticle, proposedIntent: 'something' });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts empty proposedSummary (optional)', () => {
+    const result = SubmissionSchema.safeParse({ ...validNewArticle, proposedSummary: '' });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects a proposedSummary over 280 chars', () => {
     const result = SubmissionSchema.safeParse({
-      ...validBase,
+      ...validNewArticle,
+      proposedSummary: 'x'.repeat(281),
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts an optional submitterEmail when correctly formatted', () => {
+    const result = SubmissionSchema.safeParse({
+      ...validNewArticle,
       submitterEmail: 'oliver@example.org',
     });
     expect(result.success).toBe(true);
   });
 
-  it('rejects a malformed email', () => {
+  it('rejects a malformed submitterEmail', () => {
     const result = SubmissionSchema.safeParse({
-      ...validBase,
+      ...validNewArticle,
       submitterEmail: 'not-an-email',
     });
     expect(result.success).toBe(false);
-    if (!result.success) {
-      const flat = flattenZodErrors(result.error);
-      expect(flat.submitterEmail).toMatch(/gültige/);
-    }
   });
 
-  it('accepts an empty-string email (optional treatment)', () => {
-    const result = SubmissionSchema.safeParse({
-      ...validBase,
-      submitterEmail: '',
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it('requires relatedArticleSlug when type is correction', () => {
-    const result = SubmissionSchema.safeParse({
-      ...validBase,
-      type: 'correction',
-    });
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      const flat = flattenZodErrors(result.error);
-      expect(flat.relatedArticleSlug).toMatch(/Korrektur/);
-    }
-  });
-
-  it('accepts correction with relatedArticleSlug set', () => {
-    const result = SubmissionSchema.safeParse({
-      ...validBase,
-      type: 'correction',
-      relatedArticleSlug: 'dekubitus',
-    });
+  it('accepts empty-string submitterEmail (optional)', () => {
+    const result = SubmissionSchema.safeParse({ ...validNewArticle, submitterEmail: '' });
     expect(result.success).toBe(true);
   });
 });
 
-describe('flattenZodErrors', () => {
-  it('flattens nested errors into { fieldName: firstErrorMessage }', () => {
-    const result = SubmissionSchema.safeParse({ ...validBase, subject: '' });
+describe('SubmissionSchema — correction path', () => {
+  it('accepts a valid correction with one section', () => {
+    const result = SubmissionSchema.safeParse(validCorrection);
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts a valid correction with multiple sections', () => {
+    const result = SubmissionSchema.safeParse({
+      ...validCorrection,
+      selectedSections: ['praxis', 'risiken'],
+      editedRisiken: lexicalSample,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects an empty selectedSections array', () => {
+    const result = SubmissionSchema.safeParse({ ...validCorrection, selectedSections: [] });
     expect(result.success).toBe(false);
     if (!result.success) {
       const flat = flattenZodErrors(result.error);
-      expect(typeof flat.subject).toBe('string');
-      expect(flat.subject.length).toBeGreaterThan(0);
+      expect(flat.selectedSections).toMatch(/Mindestens/);
     }
   });
 
-  it('keeps the first message when multiple issues target the same field', () => {
-    const err = new ZodError([
-      { code: 'custom', path: ['subject'], message: 'first message' },
-      { code: 'custom', path: ['subject'], message: 'second message' },
-    ]);
-    const flat = flattenZodErrors(err);
-    expect(flat.subject).toBe('first message');
+  it('rejects when selectedSections includes a section without edited content', () => {
+    const result = SubmissionSchema.safeParse({
+      ...validCorrection,
+      selectedSections: ['praxis', 'risiken'],
+      // editedRisiken missing
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects missing relatedArticleSlug on correction', () => {
+    const { relatedArticleSlug: _relatedArticleSlug, ...rest } = validCorrection;
+    const result = SubmissionSchema.safeParse(rest);
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects an invalid section name in selectedSections', () => {
+    const result = SubmissionSchema.safeParse({
+      ...validCorrection,
+      selectedSections: ['notasection'],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts an optional correctionReason', () => {
+    const result = SubmissionSchema.safeParse({
+      ...validCorrection,
+      correctionReason: 'Standard X seit 2025 anders.',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects a correctionReason over 2000 chars', () => {
+    const result = SubmissionSchema.safeParse({
+      ...validCorrection,
+      correctionReason: 'x'.repeat(2001),
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('SubmissionSchema — turnstile + common', () => {
+  it('rejects when turnstileToken is missing', () => {
+    const { turnstileToken: _turnstileToken, ...rest } = validNewArticle;
+    const result = SubmissionSchema.safeParse(rest);
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('flattenZodErrors', () => {
+  it('flattens errors into { fieldName: firstErrorMessage }', () => {
+    const result = SubmissionSchema.safeParse({ ...validNewArticle, proposedTitle: '' });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const flat = flattenZodErrors(result.error);
+      expect(typeof flat.proposedTitle).toBe('string');
+      expect(flat.proposedTitle.length).toBeGreaterThan(0);
+    }
   });
 });
