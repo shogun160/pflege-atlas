@@ -55,24 +55,30 @@ const CorrectionSchema = z
     type: z.literal('correction'),
     relatedArticleSlug: z.string().trim().min(1, 'Artikel auswählen.'),
     selectedSections: z.array(Section).min(1, 'Mindestens eine Sektion auswählen.'),
-    editedDefinition: LexicalJsonString.optional(),
-    editedPraxis: LexicalJsonString.optional(),
-    editedRisiken: LexicalJsonString.optional(),
-    editedQuellen: LexicalJsonString.optional(),
+    // .or(z.literal('')) so the hidden inputs from un-checked sections
+    // (which emit '' in the FormData) don't trip the LexicalJsonString refine.
+    editedDefinition: LexicalJsonString.optional().or(z.literal('')),
+    editedPraxis: LexicalJsonString.optional().or(z.literal('')),
+    editedRisiken: LexicalJsonString.optional().or(z.literal('')),
+    editedQuellen: LexicalJsonString.optional().or(z.literal('')),
     correctionReason: z.string().trim().max(2000, 'Maximal 2000 Zeichen.').optional(),
     ...CommonFields,
   })
-  .refine(
-    (data) =>
-      data.selectedSections.every((s) => {
-        const key = `edited${s.charAt(0).toUpperCase()}${s.slice(1)}` as keyof typeof data;
-        return typeof data[key] === 'string' && (data[key] as string).length > 0;
-      }),
-    {
-      path: ['selectedSections'],
-      message: 'Editor-Inhalt fehlt für eine ausgewählte Sektion.',
-    },
-  );
+  .superRefine((data, ctx) => {
+    // Each selected section must carry actual edited content; '' is treated as
+    // "not provided" because the hidden input emits '' for un-checked sections.
+    for (const s of data.selectedSections) {
+      const key = `edited${s.charAt(0).toUpperCase()}${s.slice(1)}` as keyof typeof data;
+      const value = data[key];
+      if (typeof value !== 'string' || value.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message: 'Editor-Inhalt fehlt für ausgewählte Sektion.',
+        });
+      }
+    }
+  });
 
 export const SubmissionSchema = z.discriminatedUnion('type', [NewArticleSchema, CorrectionSchema]);
 
