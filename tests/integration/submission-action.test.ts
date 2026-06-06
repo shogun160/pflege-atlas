@@ -1,118 +1,226 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 
-// Hoist mocks so they are available before vi.mock factory calls (hoisting requirement)
-const { createMock, sendEmailMock, findMock, redirectMock } = vi.hoisted(() => ({
-  createMock: vi.fn(),
-  sendEmailMock: vi.fn(),
-  findMock: vi.fn(),
-  redirectMock: vi.fn(() => {
+const { mockCreate, mockFind, mockSendEmail, mockVerify, mockRedirect } = vi.hoisted(() => ({
+  mockCreate: vi.fn(),
+  mockFind: vi.fn(),
+  mockSendEmail: vi.fn(),
+  mockVerify: vi.fn(),
+  mockRedirect: vi.fn(() => {
     throw new Error('NEXT_REDIRECT');
   }),
 }));
 
 vi.mock('@/lib/payload', () => ({
-  getPayloadClient: vi.fn(async () => ({
-    create: createMock,
-    sendEmail: sendEmailMock,
-    find: findMock,
-  })),
+  getPayloadClient: async () => ({
+    create: mockCreate,
+    find: mockFind,
+    sendEmail: mockSendEmail,
+  }),
+}));
+
+vi.mock('@/lib/turnstile', () => ({
+  verifyTurnstileToken: mockVerify,
 }));
 
 vi.mock('next/navigation', () => ({
-  redirect: redirectMock,
+  redirect: mockRedirect,
 }));
 
 import { submitAction } from '@/app/(frontend)/einreichen/actions';
 
-function fd(obj: Record<string, string>): FormData {
-  const f = new FormData();
-  for (const [k, v] of Object.entries(obj)) f.set(k, v);
-  return f;
+const lexicalSample = JSON.stringify({
+  type: 'root',
+  version: 1,
+  children: [
+    {
+      type: 'paragraph',
+      version: 1,
+      children: [{ type: 'text', version: 1, text: 'X', format: 0 }],
+    },
+  ],
+});
+
+const editedLexical = JSON.stringify({
+  type: 'root',
+  version: 1,
+  children: [
+    {
+      type: 'paragraph',
+      version: 1,
+      children: [{ type: 'text', version: 1, text: 'EDITIERT', format: 0 }],
+    },
+  ],
+});
+
+function formDataFrom(obj: Record<string, string | string[]>): FormData {
+  const fd = new FormData();
+  for (const [k, v] of Object.entries(obj)) {
+    if (Array.isArray(v)) {
+      for (const item of v) fd.append(k, item);
+    } else {
+      fd.append(k, v);
+    }
+  }
+  return fd;
 }
 
-const validForm = {
-  type: 'new_article',
-  subject: 'Testbetreff für Integration',
-  body: 'Test-Inhalt mit mindestens zwanzig Zeichen Länge.',
-  turnstileToken: 'token',
-  submitterName: '',
-  submitterEmail: '',
-};
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockVerify.mockResolvedValue(true);
+  mockCreate.mockResolvedValue({ id: 42, createdAt: '2026-06-06T12:00:00Z' });
+});
 
-// V1.4: Tests skipped — V1.3b schema (subject/body) is replaced by structured fields.
-// Will be rewritten in T10 (server-action rewrite).
-describe.skip('submitAction', () => {
+describe('submitAction — new_article happy path', () => {
+  it('creates submission, sends mail, redirects to /einreichen/danke', async () => {
+    const fd = formDataFrom({
+      type: 'new_article',
+      proposedTitle: 'Dekubitusprophylaxe',
+      proposedDefinition: lexicalSample,
+      proposedPraxis: lexicalSample,
+      proposedRisiken: lexicalSample,
+      proposedQuellen: lexicalSample,
+      turnstileToken: 'ok',
+    });
+
+    await expect(submitAction({}, fd)).rejects.toThrow('NEXT_REDIRECT');
+    expect(mockCreate).toHaveBeenCalledOnce();
+    expect(mockSendEmail).toHaveBeenCalledOnce();
+    expect(mockRedirect).toHaveBeenCalledWith('/einreichen/danke');
+    const createArgs = mockCreate.mock.calls[0][0];
+    expect(createArgs.collection).toBe('submissions');
+    expect(createArgs.data.type).toBe('new_article');
+    expect(createArgs.data.proposedTitle).toBe('Dekubitusprophylaxe');
+  });
+});
+
+describe('submitAction — correction happy path', () => {
   beforeEach(() => {
-    createMock.mockReset().mockResolvedValue({
-      id: 'sub-1',
-      type: 'new_article',
-      subject: 'Testbetreff für Integration',
-      body: 'Test-Inhalt mit mindestens zwanzig Zeichen Länge.',
-      createdAt: '2026-06-05T00:00:00Z',
-    });
-    sendEmailMock.mockReset().mockResolvedValue({ id: 'mail-1' });
-    findMock.mockReset().mockResolvedValue({ docs: [] });
-    redirectMock.mockClear();
-    vi.stubEnv('TURNSTILE_SECRET_KEY', ''); // bypass-Pfad
-  });
-
-  afterEach(() => {
-    vi.unstubAllEnvs();
-  });
-
-  it('returns fieldErrors when schema validation fails', async () => {
-    const result = await submitAction({}, fd({ ...validForm, subject: '' }));
-    expect(result.fieldErrors?.subject).toBeDefined();
-    expect(createMock).not.toHaveBeenCalled();
-  });
-
-  it('returns submitted values alongside fieldErrors so the form can preserve user input', async () => {
-    const result = await submitAction({}, fd({ ...validForm, subject: '' }));
-    expect(result.values).toMatchObject({
-      type: 'new_article',
-      subject: '',
-      body: validForm.body,
+    mockFind.mockResolvedValue({
+      docs: [
+        {
+          id: 7,
+          title: 'Dekubitus',
+          definition: JSON.parse(lexicalSample),
+          praxis: JSON.parse(lexicalSample),
+          risiken: JSON.parse(lexicalSample),
+          quellen: JSON.parse(lexicalSample),
+        },
+      ],
     });
   });
 
-  it('calls payload.create on valid input', async () => {
-    await expect(submitAction({}, fd(validForm))).rejects.toThrow('NEXT_REDIRECT');
-    expect(createMock).toHaveBeenCalledTimes(1);
-    expect(createMock.mock.calls[0][0]).toMatchObject({
-      collection: 'submissions',
-      data: expect.objectContaining({
-        type: 'new_article',
-        subject: 'Testbetreff für Integration',
-        reviewStatus: 'pending',
-      }),
+  it('accepts correction with one edited section', async () => {
+    const fd = formDataFrom({
+      type: 'correction',
+      relatedArticleSlug: 'dekubitus',
+      selectedSections: ['praxis'],
+      editedPraxis: editedLexical,
+      turnstileToken: 'ok',
+    });
+
+    await expect(submitAction({}, fd)).rejects.toThrow('NEXT_REDIRECT');
+    expect(mockCreate).toHaveBeenCalledOnce();
+    expect(mockSendEmail).toHaveBeenCalledOnce();
+    expect(mockRedirect).toHaveBeenCalledWith('/einreichen/danke');
+    const createArgs = mockCreate.mock.calls[0][0];
+    expect(createArgs.data.type).toBe('correction');
+    expect(createArgs.data.relatedArticle).toBe(7);
+    expect(createArgs.data.editedPraxis).toBeDefined();
+  });
+
+  it('accepts correction with multiple edited sections', async () => {
+    const fd = formDataFrom({
+      type: 'correction',
+      relatedArticleSlug: 'dekubitus',
+      selectedSections: ['praxis', 'risiken'],
+      editedPraxis: editedLexical,
+      editedRisiken: editedLexical,
+      turnstileToken: 'ok',
+    });
+
+    await expect(submitAction({}, fd)).rejects.toThrow('NEXT_REDIRECT');
+    expect(mockCreate).toHaveBeenCalledOnce();
+  });
+});
+
+describe('submitAction — correction validation failures', () => {
+  beforeEach(() => {
+    mockFind.mockResolvedValue({
+      docs: [
+        {
+          id: 7,
+          title: 'Dekubitus',
+          definition: JSON.parse(lexicalSample),
+          praxis: JSON.parse(lexicalSample),
+          risiken: JSON.parse(lexicalSample),
+          quellen: JSON.parse(lexicalSample),
+        },
+      ],
     });
   });
 
-  it('sends notification email after successful create', async () => {
-    await expect(submitAction({}, fd(validForm))).rejects.toThrow('NEXT_REDIRECT');
-    expect(sendEmailMock).toHaveBeenCalledTimes(1);
-    expect(sendEmailMock.mock.calls[0][0].to).toBe('redaktion@pflegeatlas.org');
+  it('rejects when edited content equals original (no changes)', async () => {
+    const fd = formDataFrom({
+      type: 'correction',
+      relatedArticleSlug: 'dekubitus',
+      selectedSections: ['praxis'],
+      editedPraxis: lexicalSample, // identical to original
+      turnstileToken: 'ok',
+    });
+
+    const result = await submitAction({}, fd);
+    expect(result.fieldErrors?.editedPraxis).toMatch(/Keine Änderungen/);
+    expect(mockCreate).not.toHaveBeenCalled();
   });
 
-  it('redirects to /einreichen/danke on success', async () => {
-    await expect(submitAction({}, fd(validForm))).rejects.toThrow('NEXT_REDIRECT');
-    expect(redirectMock).toHaveBeenCalledWith('/einreichen/danke');
-  });
+  it('rejects when article slug not found', async () => {
+    mockFind.mockResolvedValueOnce({ docs: [] });
+    const fd = formDataFrom({
+      type: 'correction',
+      relatedArticleSlug: 'unbekannt',
+      selectedSections: ['praxis'],
+      editedPraxis: editedLexical,
+      turnstileToken: 'ok',
+    });
 
-  it('returns error when related article slug not found for corrections', async () => {
-    findMock.mockResolvedValue({ docs: [] });
-    const result = await submitAction(
-      {},
-      fd({ ...validForm, type: 'correction', relatedArticleSlug: 'unknown' }),
-    );
+    const result = await submitAction({}, fd);
     expect(result.fieldErrors?.relatedArticleSlug).toMatch(/nicht gefunden/);
-    expect(createMock).not.toHaveBeenCalled();
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe('submitAction — turnstile + values preservation', () => {
+  it('returns state.error when turnstile fails', async () => {
+    mockVerify.mockResolvedValueOnce(false);
+    const fd = formDataFrom({
+      type: 'new_article',
+      proposedTitle: 'Title',
+      proposedDefinition: lexicalSample,
+      proposedPraxis: lexicalSample,
+      proposedRisiken: lexicalSample,
+      proposedQuellen: lexicalSample,
+      turnstileToken: 'bad',
+    });
+
+    const result = await submitAction({}, fd);
+    expect(result.error).toMatch(/Captcha/);
+    expect(mockCreate).not.toHaveBeenCalled();
   });
 
-  it('does not bounce submit if mail send fails — submission still created', async () => {
-    sendEmailMock.mockRejectedValue(new Error('mail down'));
-    await expect(submitAction({}, fd(validForm))).rejects.toThrow('NEXT_REDIRECT');
-    expect(createMock).toHaveBeenCalledTimes(1);
-    expect(redirectMock).toHaveBeenCalled();
+  it('preserves submitted values on fieldErrors', async () => {
+    const fd = formDataFrom({
+      type: 'new_article',
+      proposedTitle: 'ab', // too short
+      proposedDefinition: lexicalSample,
+      proposedPraxis: lexicalSample,
+      proposedRisiken: lexicalSample,
+      proposedQuellen: lexicalSample,
+      submitterName: 'Anna',
+      turnstileToken: 'ok',
+    });
+
+    const result = await submitAction({}, fd);
+    expect(result.values?.proposedTitle).toBe('ab');
+    expect(result.values?.submitterName).toBe('Anna');
   });
 });
