@@ -96,6 +96,8 @@ Das öffentliche Submission-Formular unter `/einreichen` verwendet [Cloudflare T
 
 Lokal ohne diese Vars läuft Turnstile im Bypass — das Formular akzeptiert jeden Submit. Production muss die Keys gesetzt haben.
 
+**V1.4 strukturierte Submissions:** Das Formular ist seit V1.4 typ-abhängig. Ein Vorschlag für einen neuen Artikel sammelt Titel, optional Intent und Summary, sowie vier strukturierte RichText-Sektionen (Definition / Praxis / Risiken / Quellen) analog zur `Articles`-Collection. Eine Korrektur lädt die Sektionen des bezogenen Artikels vor; per Checkboxes wählt der Einreichende, welche Sektionen er editieren möchte. Der reduzierte Lexical-Editor bietet eine 5-Button-Toolbar (Bold, Italic, Bullet-List, Numbered-List, Link).
+
 ## Beiträge
 
 Beiträge — Code wie Inhalt — sind willkommen. Bitte vorher kurz in [CONTRIBUTING.md](./CONTRIBUTING.md) lesen.
