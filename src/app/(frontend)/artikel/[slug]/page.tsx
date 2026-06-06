@@ -118,21 +118,53 @@ export default async function ArticlePage({ params }: Props) {
       <section id="definition" className="mb-10">
         <h2 className="font-serif text-2xl font-semibold text-ink">1. Definition</h2>
         <RichText data={article.definition as any} />
+        <p className="mt-3 text-sm text-ink-muted">
+          <a
+            href={`/einreichen?type=correction&article=${article.slug}&section=definition`}
+            className="text-brand hover:underline"
+          >
+            Diese Sektion ergänzen oder korrigieren →
+          </a>
+        </p>
       </section>
 
       <section id="praxis" className="mb-10">
         <h2 className="font-serif text-2xl font-semibold text-ink">2. Praxis</h2>
         <RichText data={article.praxis as any} />
+        <p className="mt-3 text-sm text-ink-muted">
+          <a
+            href={`/einreichen?type=correction&article=${article.slug}&section=praxis`}
+            className="text-brand hover:underline"
+          >
+            Diese Sektion ergänzen oder korrigieren →
+          </a>
+        </p>
       </section>
 
       <section id="risiken" className="mb-10">
         <h2 className="font-serif text-2xl font-semibold text-ink">3. Risiken &amp; Fallstricke</h2>
         <RichText data={article.risiken as any} />
+        <p className="mt-3 text-sm text-ink-muted">
+          <a
+            href={`/einreichen?type=correction&article=${article.slug}&section=risiken`}
+            className="text-brand hover:underline"
+          >
+            Diese Sektion ergänzen oder korrigieren →
+          </a>
+        </p>
       </section>
 
       <section id="quellen" className="mb-10">
         <h2 className="font-serif text-2xl font-semibold text-ink">4. Quellen &amp; Weiterführendes</h2>
         <RichText data={article.quellen as any} />
+        <p className="mt-3 text-sm text-ink-muted">
+          <a
+            href={`/einreichen?type=correction&article=${article.slug}&section=quellen`}
+            className="text-brand hover:underline"
+          >
+            Diese Sektion ergänzen oder korrigieren →
+          </a>
+        </p>
       </section>
 
       <footer className="mt-16 border-t border-rule pt-6 text-sm text-ink-muted">

@@ -1,66 +1,69 @@
-import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { SubmissionForm } from '@/components/SubmissionForm';
+import { render, screen, fireEvent } from '@testing-library/react';
 
-// Mock the Turnstile widget — it requires browser-only setup
-vi.mock('@marsidev/react-turnstile', () => ({
-  Turnstile: () => <div data-testid="turnstile-mock" />,
-}));
-
-// Mock server action — pulls in server-only/payload which can't run in jsdom
 vi.mock('@/app/(frontend)/einreichen/actions', () => ({
   submitAction: vi.fn(async () => ({})),
 }));
 
+vi.mock('@marsidev/react-turnstile', () => ({
+  Turnstile: ({ onSuccess }: { onSuccess: (t: string) => void }) => (
+    <button type="button" onClick={() => onSuccess('mock-token')}>
+      Turnstile mock
+    </button>
+  ),
+}));
+
+vi.mock('@/components/NewArticleFields', () => ({
+  NewArticleFields: () => <div data-testid="new-article-fields" />,
+}));
+
+vi.mock('@/components/CorrectionFields', () => ({
+  CorrectionFields: () => <div data-testid="correction-fields" />,
+}));
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
+import { SubmissionForm } from '@/components/SubmissionForm';
+
+const baseProps = {
+  articles: [{ slug: 'a', title: 'A' }],
+  articleSections: { definition: '', praxis: '', risiken: '', quellen: '' },
+  turnstileSiteKey: 'site-key',
+  initialType: 'new_article' as const,
+  initialArticleSlug: '',
+  initialSection: '' as '' | 'definition' | 'praxis' | 'risiken' | 'quellen',
+};
+
 describe('SubmissionForm', () => {
-  const articles = [
-    { slug: 'dekubitus', title: 'Dekubitusprophylaxe' },
-    { slug: 'lagerung', title: 'Lagerung' },
-  ];
-
-  it('renders all required fields', () => {
-    render(
-      <SubmissionForm
-        articles={articles}
-        turnstileSiteKey="test-key"
-      />,
-    );
-    expect(screen.getByLabelText(/Art/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Betreff/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Inhalt/i)).toBeInTheDocument();
-    expect(screen.getByTestId('turnstile-mock')).toBeInTheDocument();
+  it('renders NewArticleFields when type=new_article', () => {
+    render(<SubmissionForm {...baseProps} initialType="new_article" />);
+    expect(screen.getByTestId('new-article-fields')).toBeInTheDocument();
+    expect(screen.queryByTestId('correction-fields')).not.toBeInTheDocument();
   });
 
-  it('pre-fills type from props', () => {
-    render(
-      <SubmissionForm
-        articles={articles}
-        turnstileSiteKey="test-key"
-        initialType="correction"
-      />,
-    );
-    const select = screen.getByLabelText(/Art/i) as HTMLSelectElement;
-    expect(select.value).toBe('correction');
+  it('renders CorrectionFields when type=correction', () => {
+    render(<SubmissionForm {...baseProps} initialType="correction" />);
+    expect(screen.getByTestId('correction-fields')).toBeInTheDocument();
+    expect(screen.queryByTestId('new-article-fields')).not.toBeInTheDocument();
   });
 
-  it('pre-fills relatedArticleSlug from props when correction', () => {
-    render(
-      <SubmissionForm
-        articles={articles}
-        turnstileSiteKey="test-key"
-        initialType="correction"
-        initialArticleSlug="dekubitus"
-      />,
-    );
-    const select = screen.getByLabelText(/Bezogen auf/i) as HTMLSelectElement;
-    expect(select.value).toBe('dekubitus');
+  it('switches between NewArticleFields and CorrectionFields via the type select', () => {
+    render(<SubmissionForm {...baseProps} initialType="new_article" />);
+    fireEvent.change(screen.getByLabelText(/Art/i), { target: { value: 'correction' } });
+    expect(screen.getByTestId('correction-fields')).toBeInTheDocument();
   });
 
-  it('renders noscript fallback with mailto link', () => {
-    const { container } = render(
-      <SubmissionForm articles={articles} turnstileSiteKey="test-key" />,
-    );
-    const noscript = container.querySelector('noscript');
-    expect(noscript?.innerHTML).toMatch(/mitmachen@pflegeatlas\.org/);
+  it('renders submitter fields and submit button', () => {
+    render(<SubmissionForm {...baseProps} />);
+    expect(screen.getByLabelText(/Name/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/E-Mail/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /absenden/i })).toBeInTheDocument();
+  });
+
+  it('renders the Turnstile widget', () => {
+    render(<SubmissionForm {...baseProps} />);
+    expect(screen.getByRole('button', { name: /Turnstile mock/i })).toBeInTheDocument();
   });
 });

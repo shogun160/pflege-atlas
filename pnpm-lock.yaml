@@ -8,6 +8,18 @@ importers:
 
   .:
     dependencies:
+      '@lexical/link':
+        specifier: 0.41.0
+        version: 0.41.0
+      '@lexical/list':
+        specifier: 0.41.0
+        version: 0.41.0
+      '@lexical/react':
+        specifier: 0.41.0
+        version: 0.41.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(yjs@13.6.31)
+      '@lexical/utils':
+        specifier: 0.41.0
+        version: 0.41.0
       '@marsidev/react-turnstile':
         specifier: ^1.5.2
         version: 1.5.2(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -35,6 +47,9 @@ importers:
       graphql:
         specifier: ^16.8.1
         version: 16.14.1
+      lexical:
+        specifier: 0.41.0
+        version: 0.41.0
       next:
         specifier: 16.2.6
         version: 16.2.6(@babel/core@7.29.7)(@playwright/test@1.58.2)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(sass@1.77.4)
