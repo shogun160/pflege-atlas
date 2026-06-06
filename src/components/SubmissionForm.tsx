@@ -1,23 +1,46 @@
 'use client';
 
-import { useActionState, useState, type ReactNode } from 'react';
+import { useActionState, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Turnstile } from '@marsidev/react-turnstile';
 import { ErrorSummary } from './ErrorSummary';
+import { NewArticleFields, type NewArticleValues, type NewArticleSetters } from './NewArticleFields';
+import { CorrectionFields, type CorrectionValues, type CorrectionSetters } from './CorrectionFields';
 import { submitAction, type SubmitState } from '@/app/(frontend)/einreichen/actions';
 
-type Props = {
+type Type = 'new_article' | 'correction';
+type Section = '' | 'definition' | 'praxis' | 'risiken' | 'quellen';
+
+interface Props {
   articles: { slug: string; title: string }[];
+  articleSections: {
+    definition: string;
+    praxis: string;
+    risiken: string;
+    quellen: string;
+  };
   turnstileSiteKey: string;
-  initialType?: 'new_article' | 'correction';
+  initialType?: Type;
   initialArticleSlug?: string;
-};
+  initialSection?: Section;
+}
 
 const FIELD_LABELS: Record<string, string> = {
   type: 'Art',
-  subject: 'Betreff',
-  body: 'Inhalt',
+  proposedTitle: 'Titel',
+  proposedIntent: 'Intent',
+  proposedSummary: 'Kurzbeschreibung',
+  proposedDefinition: 'Definition',
+  proposedPraxis: 'Praxis',
+  proposedRisiken: 'Risiken',
+  proposedQuellen: 'Quellen',
   relatedArticleSlug: 'Bezogen auf',
+  selectedSections: 'Sektionen',
+  editedDefinition: 'Definition (Korrektur)',
+  editedPraxis: 'Praxis (Korrektur)',
+  editedRisiken: 'Risiken (Korrektur)',
+  editedQuellen: 'Quellen (Korrektur)',
+  correctionReason: 'Begründung',
   submitterName: 'Name',
   submitterEmail: 'E-Mail',
   turnstileToken: 'Captcha',
@@ -39,45 +62,42 @@ function SubmitButton() {
   );
 }
 
-function FieldError({ name, errors }: { name: string; errors?: Record<string, string> }) {
-  if (!errors?.[name]) return null;
-  return (
-    <p id={`error-${name}`} className="mt-1 text-sm text-accent">
-      {errors[name]}
-    </p>
-  );
-}
-
-function FieldHint({ id, children }: { id: string; children: ReactNode }) {
-  return (
-    <p id={id} className="mt-1 text-sm text-ink-muted">
-      {children}
-    </p>
-  );
-}
-
 export function SubmissionForm({
   articles,
+  articleSections,
   turnstileSiteKey,
   initialType = 'new_article',
   initialArticleSlug = '',
+  initialSection = '',
 }: Props) {
   const [state, formAction] = useActionState(submitAction, initialState);
 
-  // Controlled fields. We track everything in local state so React 19's
-  // post-action form-reset does not wipe the user's input. On every action
-  // return we sync state from state.values via the render-time pattern below.
-  const [type, setType] = useState<'new_article' | 'correction'>(initialType);
-  const [subject, setSubject] = useState('');
-  const [body, setBody] = useState('');
-  const [relatedArticleSlug, setRelatedArticleSlug] = useState(initialArticleSlug);
+  const [type, setType] = useState<Type>(initialType);
   const [submitterName, setSubmitterName] = useState('');
   const [submitterEmail, setSubmitterEmail] = useState('');
   const [turnstileToken, setTurnstileToken] = useState('');
 
-  // Sync controlled fields from server action's echoed values. Render-time
-  // setState is the React-recommended pattern for "reset state on prop change"
-  // — it does one extra render synchronously, no useEffect cascade.
+  // new_article state
+  const [proposedTitle, setProposedTitle] = useState('');
+  const [proposedIntent, setProposedIntent] = useState('');
+  const [proposedSummary, setProposedSummary] = useState('');
+  const [proposedDefinition, setProposedDefinition] = useState('');
+  const [proposedPraxis, setProposedPraxis] = useState('');
+  const [proposedRisiken, setProposedRisiken] = useState('');
+  const [proposedQuellen, setProposedQuellen] = useState('');
+
+  // correction state
+  const [relatedArticleSlug, setRelatedArticleSlug] = useState(initialArticleSlug);
+  const [correctionReason, setCorrectionReason] = useState('');
+  const [selectedSections, setSelectedSections] = useState<string[]>(
+    initialSection ? [initialSection] : [],
+  );
+  const [editedDefinition, setEditedDefinition] = useState('');
+  const [editedPraxis, setEditedPraxis] = useState('');
+  const [editedRisiken, setEditedRisiken] = useState('');
+  const [editedQuellen, setEditedQuellen] = useState('');
+
+  // Render-time sync from state.values (V1.3b pattern)
   const [lastValues, setLastValues] = useState<SubmitState['values'] | undefined>(undefined);
   if (state.values !== lastValues) {
     setLastValues(state.values);
@@ -85,17 +105,67 @@ export function SubmissionForm({
       if (state.values.type === 'new_article' || state.values.type === 'correction') {
         setType(state.values.type);
       }
-      setSubject(state.values.subject ?? '');
-      setBody(state.values.body ?? '');
-      setRelatedArticleSlug(state.values.relatedArticleSlug ?? '');
       setSubmitterName(state.values.submitterName ?? '');
       setSubmitterEmail(state.values.submitterEmail ?? '');
+      setProposedTitle(state.values.proposedTitle ?? '');
+      setProposedIntent(state.values.proposedIntent ?? '');
+      setProposedSummary(state.values.proposedSummary ?? '');
+      setProposedDefinition(state.values.proposedDefinition ?? '');
+      setProposedPraxis(state.values.proposedPraxis ?? '');
+      setProposedRisiken(state.values.proposedRisiken ?? '');
+      setProposedQuellen(state.values.proposedQuellen ?? '');
+      setRelatedArticleSlug(state.values.relatedArticleSlug ?? '');
+      setCorrectionReason(state.values.correctionReason ?? '');
+      if (Array.isArray(state.values.selectedSections)) {
+        setSelectedSections(state.values.selectedSections);
+      }
+      setEditedDefinition(state.values.editedDefinition ?? '');
+      setEditedPraxis(state.values.editedPraxis ?? '');
+      setEditedRisiken(state.values.editedRisiken ?? '');
+      setEditedQuellen(state.values.editedQuellen ?? '');
     }
   }
 
+  const newArticleValues: NewArticleValues = {
+    proposedTitle,
+    proposedIntent,
+    proposedSummary,
+    proposedDefinition,
+    proposedPraxis,
+    proposedRisiken,
+    proposedQuellen,
+  };
+  const newArticleSetters: NewArticleSetters = {
+    setProposedTitle,
+    setProposedIntent,
+    setProposedSummary,
+    setProposedDefinition,
+    setProposedPraxis,
+    setProposedRisiken,
+    setProposedQuellen,
+  };
+
+  const correctionValues: CorrectionValues = {
+    relatedArticleSlug,
+    correctionReason,
+    selectedSections,
+    editedDefinition,
+    editedPraxis,
+    editedRisiken,
+    editedQuellen,
+  };
+  const correctionSetters: CorrectionSetters = {
+    setRelatedArticleSlug,
+    setCorrectionReason,
+    setSelectedSections,
+    setEditedDefinition,
+    setEditedPraxis,
+    setEditedRisiken,
+    setEditedQuellen,
+  };
+
   return (
     <>
-      {/* dangerouslySetInnerHTML keeps noscript innerHTML visible in jsdom tests */}
       <noscript
         dangerouslySetInnerHTML={{
           __html:
@@ -105,7 +175,6 @@ export function SubmissionForm({
             'mitmachen@pflegeatlas.org</a> mailen.</p>',
         }}
       />
-
       <form action={formAction} noValidate className="space-y-6">
         {state.error && (
           <p role="alert" className="rounded-lg border-l-4 border-accent bg-surface p-4">
@@ -123,81 +192,31 @@ export function SubmissionForm({
             name="type"
             required
             value={type}
-            onChange={(e) => setType(e.target.value as 'new_article' | 'correction')}
+            onChange={(e) => setType(e.target.value as Type)}
             className="mt-1 w-full rounded-md border border-rule bg-white p-2"
           >
             <option value="new_article">Neuer Artikel-Vorschlag</option>
             <option value="correction">Korrektur</option>
           </select>
-          <FieldError name="type" errors={state.fieldErrors} />
         </div>
 
-        {type === 'correction' && (
-          <div>
-            <label htmlFor="field-relatedArticleSlug" className="block font-semibold">
-              Bezogen auf *
-            </label>
-            <select
-              id="field-relatedArticleSlug"
-              name="relatedArticleSlug"
-              value={relatedArticleSlug}
-              onChange={(e) => setRelatedArticleSlug(e.target.value)}
-              className="mt-1 w-full rounded-md border border-rule bg-white p-2"
-            >
-              <option value="">— wählen —</option>
-              {articles.map((a) => (
-                <option key={a.slug} value={a.slug}>
-                  {a.title}
-                </option>
-              ))}
-            </select>
-            <FieldError name="relatedArticleSlug" errors={state.fieldErrors} />
-          </div>
+        {type === 'new_article' && (
+          <NewArticleFields
+            values={newArticleValues}
+            setters={newArticleSetters}
+            fieldErrors={state.fieldErrors}
+          />
         )}
 
-        <div>
-          <label htmlFor="field-subject" className="block font-semibold">
-            Betreff *
-          </label>
-          <input
-            id="field-subject"
-            type="text"
-            name="subject"
-            required
-            minLength={3}
-            maxLength={200}
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
-            aria-describedby="hint-subject"
-            className="mt-1 w-full rounded-md border border-rule bg-white p-2"
+        {type === 'correction' && (
+          <CorrectionFields
+            articles={articles}
+            articleSections={articleSections}
+            values={correctionValues}
+            setters={correctionSetters}
+            fieldErrors={state.fieldErrors}
           />
-          <FieldHint id="hint-subject">
-            {subject.length} / 200 Zeichen{subject.length < 3 ? ' (min. 3)' : ''}
-          </FieldHint>
-          <FieldError name="subject" errors={state.fieldErrors} />
-        </div>
-
-        <div>
-          <label htmlFor="field-body" className="block font-semibold">
-            Inhalt *
-          </label>
-          <textarea
-            id="field-body"
-            name="body"
-            required
-            minLength={20}
-            maxLength={20000}
-            rows={10}
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            aria-describedby="hint-body"
-            className="mt-1 w-full rounded-md border border-rule bg-white p-2"
-          />
-          <FieldHint id="hint-body">
-            {body.length.toLocaleString('de-DE')} / 20.000 Zeichen{body.length < 20 ? ' (min. 20)' : ''}
-          </FieldHint>
-          <FieldError name="body" errors={state.fieldErrors} />
-        </div>
+        )}
 
         <div>
           <label htmlFor="field-submitterName" className="block font-semibold">
@@ -210,11 +229,8 @@ export function SubmissionForm({
             maxLength={100}
             value={submitterName}
             onChange={(e) => setSubmitterName(e.target.value)}
-            aria-describedby="hint-submitterName"
             className="mt-1 w-full rounded-md border border-rule bg-white p-2"
           />
-          <FieldHint id="hint-submitterName">Maximal 100 Zeichen.</FieldHint>
-          <FieldError name="submitterName" errors={state.fieldErrors} />
         </div>
 
         <div>
@@ -230,10 +246,9 @@ export function SubmissionForm({
             aria-describedby="hint-submitterEmail"
             className="mt-1 w-full rounded-md border border-rule bg-white p-2"
           />
-          <FieldHint id="hint-submitterEmail">
+          <p id="hint-submitterEmail" className="mt-1 text-sm text-ink-muted">
             Nur für Rückfragen. Wird nicht veröffentlicht und nicht für Newsletter genutzt.
-          </FieldHint>
-          <FieldError name="submitterEmail" errors={state.fieldErrors} />
+          </p>
         </div>
 
         <div>
@@ -242,7 +257,7 @@ export function SubmissionForm({
             onSuccess={(token) => setTurnstileToken(token)}
             options={{ size: 'normal' }}
           />
-          <input type="hidden" name="turnstileToken" id="field-turnstileToken" value={turnstileToken} readOnly />
+          <input type="hidden" name="turnstileToken" value={turnstileToken} readOnly />
         </div>
 
         <SubmitButton />
