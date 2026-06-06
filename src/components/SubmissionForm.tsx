@@ -75,7 +75,11 @@ export function SubmissionForm({
   const [type, setType] = useState<Type>(initialType);
   const [submitterName, setSubmitterName] = useState('');
   const [submitterEmail, setSubmitterEmail] = useState('');
-  const [turnstileToken, setTurnstileToken] = useState('');
+  // When no site key is set (local dev), the Turnstile widget never mounts.
+  // Pre-fill a dev-bypass token so the server-side verifier (which also has a
+  // dev-bypass path when TURNSTILE_SECRET_KEY is missing) accepts the submit.
+  const turnstileEnabled = turnstileSiteKey.length > 0;
+  const [turnstileToken, setTurnstileToken] = useState(turnstileEnabled ? '' : 'dev-bypass');
 
   // new_article state
   const [proposedTitle, setProposedTitle] = useState('');
@@ -252,11 +256,17 @@ export function SubmissionForm({
         </div>
 
         <div>
-          <Turnstile
-            siteKey={turnstileSiteKey}
-            onSuccess={(token) => setTurnstileToken(token)}
-            options={{ size: 'normal' }}
-          />
+          {turnstileEnabled ? (
+            <Turnstile
+              siteKey={turnstileSiteKey}
+              onSuccess={(token) => setTurnstileToken(token)}
+              options={{ size: 'normal' }}
+            />
+          ) : (
+            <p className="text-sm text-ink-muted">
+              Captcha im Dev-Modus übersprungen (TURNSTILE_SITE_KEY nicht gesetzt).
+            </p>
+          )}
           <input type="hidden" name="turnstileToken" value={turnstileToken} readOnly />
         </div>
 

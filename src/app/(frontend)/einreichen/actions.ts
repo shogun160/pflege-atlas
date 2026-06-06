@@ -7,6 +7,7 @@ import { buildSubmissionMail, type SubmissionMailInput } from '@/lib/submission-
 import { getPayloadClient } from '@/lib/payload';
 import { sanitizeLexicalRoot } from '@/lib/lexical-sanitize';
 import { isLexicalDirty } from '@/lib/lexical-normalize';
+import { unwrapLexicalRoot } from '@/lib/lexical-unwrap';
 
 export type SubmitState = {
   fieldErrors?: Record<string, string>;
@@ -64,7 +65,12 @@ function sanitizeLexicalString(json: string | undefined): unknown | undefined {
   if (!json) return undefined;
   try {
     const parsed = JSON.parse(json);
-    return sanitizeLexicalRoot(parsed);
+    const root = unwrapLexicalRoot(parsed);
+    if (!root) return undefined;
+    const sanitized = sanitizeLexicalRoot(root as Parameters<typeof sanitizeLexicalRoot>[0]);
+    // Re-wrap to Lexical's storage shape ({root: {...}}) so Payload stores it
+    // identical to how the admin editor would write it.
+    return { root: sanitized };
   } catch {
     return undefined;
   }
@@ -122,15 +128,18 @@ export async function submitAction(
       const editedKey = `edited${capitalize(section)}` as keyof typeof parsed.data;
       const editedRaw = parsed.data[editedKey] as string | undefined;
       if (!editedRaw) continue;
-      let editedParsed: unknown;
+      let editedRoot: ReturnType<typeof unwrapLexicalRoot>;
       try {
-        editedParsed = JSON.parse(editedRaw);
+        editedRoot = unwrapLexicalRoot(JSON.parse(editedRaw));
       } catch {
+        editedRoot = null;
+      }
+      if (!editedRoot) {
         fieldErrors[`edited${capitalize(section)}`] = 'Ungültiger Editor-Inhalt.';
         continue;
       }
-      const original = article[section];
-      if (!isLexicalDirty(editedParsed as Parameters<typeof isLexicalDirty>[0], original as Parameters<typeof isLexicalDirty>[1])) {
+      const originalRoot = unwrapLexicalRoot(article[section]);
+      if (!isLexicalDirty(editedRoot as Parameters<typeof isLexicalDirty>[0], originalRoot as Parameters<typeof isLexicalDirty>[1])) {
         fieldErrors[`edited${capitalize(section)}`] =
           'Keine Änderungen — bitte editieren oder Sektion abwählen.';
       }

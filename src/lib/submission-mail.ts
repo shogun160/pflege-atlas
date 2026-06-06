@@ -1,4 +1,5 @@
 import { lexicalToPlainText } from './lexical-to-plain-text';
+import { unwrapLexicalRoot } from './lexical-unwrap';
 
 export type SubmissionMailInput =
   | {
@@ -53,7 +54,9 @@ const SECTION_LABELS = {
 function safeRender(jsonString: string | undefined): string {
   if (!jsonString) return '';
   try {
-    return lexicalToPlainText(JSON.parse(jsonString));
+    const root = unwrapLexicalRoot(JSON.parse(jsonString));
+    if (!root) return '';
+    return lexicalToPlainText(root as Parameters<typeof lexicalToPlainText>[0]);
   } catch {
     return '';
   }

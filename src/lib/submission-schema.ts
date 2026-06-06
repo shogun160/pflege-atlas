@@ -1,4 +1,5 @@
 import { z, ZodError } from 'zod';
+import { unwrapLexicalRoot } from './lexical-unwrap';
 
 const Section = z.enum(['definition', 'praxis', 'risiken', 'quellen']);
 export type SubmissionSection = z.infer<typeof Section>;
@@ -9,8 +10,7 @@ const LexicalJsonString = z
   .refine(
     (s) => {
       try {
-        const parsed = JSON.parse(s);
-        return parsed && typeof parsed === 'object' && parsed.type === 'root';
+        return unwrapLexicalRoot(JSON.parse(s)) !== null;
       } catch {
         return false;
       }
