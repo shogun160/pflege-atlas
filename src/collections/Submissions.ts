@@ -1,4 +1,9 @@
 import type { CollectionConfig } from 'payload';
+import { getOctokit } from '@/lib/github-app';
+import { getGithubConfig } from '@/lib/env';
+import { pushSubmissionEdit } from '@/lib/github-pr';
+import { applySubmissionToArticle } from '@/lib/submission-to-article';
+import { renderArticleMarkdown } from '@/lib/article-markdown';
 
 const SECTIONS = ['definition', 'praxis', 'risiken', 'quellen'] as const;
 
@@ -7,6 +12,60 @@ const conditionNewArticle = (data: Record<string, unknown> | undefined) =>
 
 const conditionCorrection = (data: Record<string, unknown> | undefined) =>
   data?.type === 'correction';
+
+export async function afterSubmissionChangeHook(args: {
+  operation: 'create' | 'update' | string;
+  doc: Record<string, unknown>;
+  previousDoc: Record<string, unknown>;
+  req: { payload: { findByID: (a: unknown) => Promise<unknown> } };
+}): Promise<void> {
+  if (args.operation !== 'update') return;
+  const doc = args.doc as {
+    id: number;
+    type?: string;
+    reviewStatus?: string;
+    prBranch?: string | null;
+    proposedSlug?: string | null;
+    relatedArticle?: number | null;
+  };
+  if (doc.reviewStatus !== 'in_review' || !doc.prBranch) return;
+
+  let article: unknown = null;
+  if (doc.type === 'correction' && doc.relatedArticle) {
+    article = await args.req.payload.findByID({
+      collection: 'articles',
+      id: doc.relatedArticle,
+      depth: 0,
+    });
+  }
+
+  const apply = applySubmissionToArticle(doc as never, article as never);
+  const snapshot = { ...(article as object), ...apply.patch, slug: apply.slug, status: 'published' };
+  const markdown = renderArticleMarkdown({ id: 0, ...snapshot } as never, []);
+
+  const cfg = getGithubConfig();
+  const owner = cfg?.owner ?? 'shogun160';
+  const repo = cfg?.repo ?? 'pflege-atlas';
+  const octokit = getOctokit();
+
+  const newPath = `content/articles/${apply.slug}.md`;
+  const oldPath =
+    doc.type === 'new_article' &&
+    (args.previousDoc as { proposedSlug?: string }).proposedSlug &&
+    (args.previousDoc as { proposedSlug?: string }).proposedSlug !== apply.slug
+      ? `content/articles/${(args.previousDoc as { proposedSlug?: string }).proposedSlug}.md`
+      : undefined;
+
+  await pushSubmissionEdit(octokit, {
+    owner,
+    repo,
+    branch: doc.prBranch,
+    path: newPath,
+    oldPath,
+    markdown,
+    message: `submission(${doc.id}): editorial revision`,
+  });
+}
 
 export const Submissions: CollectionConfig = {
   slug: 'submissions',
@@ -21,6 +80,11 @@ export const Submissions: CollectionConfig = {
     delete: ({ req: { user } }) => user?.role === 'editor',
   },
   hooks: {
+    afterChange: [
+      async (args) => {
+        await afterSubmissionChangeHook(args as never);
+      },
+    ],
     beforeChange: [
       async ({ data, req }) => {
         if (!data) return data;

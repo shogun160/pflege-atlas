@@ -1,5 +1,42 @@
 import type { CollectionConfig } from 'payload';
 import { slugify } from '../lib/slugify';
+import { getOctokit } from '@/lib/github-app';
+import { getGithubConfig } from '@/lib/env';
+import { upsertArticleMarkdown, deleteArticleMarkdown } from '@/lib/github-article-sync';
+import { renderArticleMarkdown } from '@/lib/article-markdown';
+
+export async function afterArticleChangeHook(args: {
+  operation: 'create' | 'update' | string;
+  doc: Record<string, unknown>;
+  previousDoc: Record<string, unknown>;
+  req: {
+    context?: { skipMarkdownSync?: boolean };
+    payload: { find: (a: unknown) => Promise<{ docs: { name?: string }[] }> };
+  };
+}): Promise<void> {
+  if (args.req?.context?.skipMarkdownSync) return;
+
+  const doc = args.doc as { id: number; slug?: string; status?: string };
+  const prev = args.previousDoc as { status?: string };
+
+  const wasPublished = prev.status === 'published';
+  const isPublished = doc.status === 'published';
+
+  const cfg = getGithubConfig();
+  const owner = cfg?.owner ?? 'shogun160';
+  const repo = cfg?.repo ?? 'pflege-atlas';
+  const octokit = getOctokit();
+
+  if (!isPublished && wasPublished && doc.slug) {
+    await deleteArticleMarkdown(octokit, { owner, repo, slug: doc.slug });
+    return;
+  }
+
+  if (isPublished && doc.slug) {
+    const markdown = renderArticleMarkdown(doc as never, []);
+    await upsertArticleMarkdown(octokit, { owner, repo, slug: doc.slug, markdown });
+  }
+}
 
 export const Articles: CollectionConfig = {
   slug: 'articles',
@@ -12,6 +49,13 @@ export const Articles: CollectionConfig = {
   // natives `_status` aus dem drafts-Workflow bleibt für interne Versionen
   // erhalten, wird aber im Editorial-Flow nicht benutzt. Auf den nativen
   // Draft-Workflow wechseln wir später mit dem Auth/Editorial-Plan.
+  hooks: {
+    afterChange: [
+      async (args) => {
+        await afterArticleChangeHook(args as never);
+      },
+    ],
+  },
   versions: {
     drafts: true,
     maxPerDoc: 50,
