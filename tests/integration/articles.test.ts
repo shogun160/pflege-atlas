@@ -133,4 +133,62 @@ describe('Articles Collection', () => {
     const call = vi.mocked(upsertArticleMarkdown).mock.calls[0]!;
     expect(call[1]).toMatchObject({ slug: expectedSlug });
   });
+
+  it('Reader-Access: unauthenticated find sieht nur status=published', async () => {
+    const ts = Date.now();
+    const draftSlug = `reader-access-draft-${ts}`;
+    const publishedSlug = `reader-access-pub-${ts}`;
+
+    const user = await payload.create({
+      collection: 'users',
+      data: {
+        email: `reader-access-${ts}@example.com`,
+        password: 'test-pw-12345!',
+        displayName: 'Test Autor',
+        role: 'editor',
+      },
+    });
+
+    await payload.create({
+      collection: 'articles',
+      data: {
+        title: `Reader-Access-Draft-${ts}`,
+        slug: draftSlug,
+        intent: 'bedside',
+        summary: 'draft',
+        definition: makeLexicalDoc('d') as any,
+        praxis: makeLexicalDoc('d') as any,
+        risiken: makeLexicalDoc('d') as any,
+        quellen: makeLexicalDoc('d') as any,
+        authors: [user.id],
+        status: 'draft',
+      },
+    });
+
+    await payload.create({
+      collection: 'articles',
+      data: {
+        title: `Reader-Access-Pub-${ts}`,
+        slug: publishedSlug,
+        intent: 'bedside',
+        summary: 'pub',
+        definition: makeLexicalDoc('p') as any,
+        praxis: makeLexicalDoc('p') as any,
+        risiken: makeLexicalDoc('p') as any,
+        quellen: makeLexicalDoc('p') as any,
+        authors: [user.id],
+        status: 'published',
+      },
+    });
+
+    const anonResult = await payload.find({
+      collection: 'articles',
+      where: { slug: { in: [draftSlug, publishedSlug] } },
+      overrideAccess: false,
+    });
+
+    const slugs = anonResult.docs.map((d) => d.slug);
+    expect(slugs).toContain(publishedSlug);
+    expect(slugs).not.toContain(draftSlug);
+  });
 });
