@@ -20,7 +20,7 @@ standardsBound: false
 
 ## Risiken & Fallstricke
 
-4 Sektionen (Definition / Praxis / Risiken / Quellen): jeweils ein-zwei kurze Sätze reintippen (Lexical-Editor)
+4 Sektionen (Definition / Praxis / Risiken / Quellen): jeweils ein-zwei kurze Sätze reintippen (Lexical-Editor) edit smoke test
 
 ## Quellen & Weiterführendes
 
