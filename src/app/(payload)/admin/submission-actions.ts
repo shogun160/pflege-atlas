@@ -61,7 +61,7 @@ export async function inReviewAction(submissionId: number): Promise<ActionResult
 
   const txn = await payload.db.beginTransaction();
   try {
-    let slug = (sub as { proposedSlug?: string }).proposedSlug ?? '';
+    let slug = slugify((sub as { proposedSlug?: string }).proposedSlug ?? '');
     let articleSnapshot: Record<string, unknown> | null = null;
     const sections: string[] = [];
 
@@ -73,6 +73,7 @@ export async function inReviewAction(submissionId: number): Promise<ActionResult
             collection: 'articles',
             where: { slug: { equals: candidate } },
             limit: 1,
+            req: { transactionID: txn } as never,
           });
           return res.docs.length > 0;
         });
@@ -146,10 +147,9 @@ export async function acceptAction(submissionId: number): Promise<ActionResult> 
 
   const txn = await payload.db.beginTransaction();
   try {
-    let articleId: number;
     if (sub.type === 'new_article') {
       const apply = applySubmissionToArticle(sub as never, null);
-      const created = await payload.create({
+      await payload.create({
         collection: 'articles',
         req: { transactionID: txn } as never,
         context: { skipMarkdownSync: true },
@@ -159,11 +159,10 @@ export async function acceptAction(submissionId: number): Promise<ActionResult> 
           lastReviewedAt: new Date().toISOString(),
         } as never,
       });
-      articleId = (created as { id: number }).id;
     } else {
       const related = (sub as { relatedArticle?: number }).relatedArticle;
       if (!related) return { ok: false, error: 'Correction missing relatedArticle' };
-      const article = await payload.findByID({ collection: 'articles', id: related, depth: 0 });
+      const article = await payload.findByID({ collection: 'articles', id: related, depth: 0, req: { transactionID: txn } as never });
       const apply = applySubmissionToArticle(sub as never, article as never);
       await payload.update({
         collection: 'articles',
@@ -172,7 +171,6 @@ export async function acceptAction(submissionId: number): Promise<ActionResult> 
         context: { skipMarkdownSync: true },
         data: { ...apply.patch, lastReviewedAt: new Date().toISOString() } as never,
       });
-      articleId = related;
     }
 
     const octokit = getOctokit();
@@ -183,6 +181,15 @@ export async function acceptAction(submissionId: number): Promise<ActionResult> 
       await mergeSubmissionPR(octokit, { owner, repo, prNumber, branch: prBranch });
     }
 
+    // KNOWN LIMITATION (V1.5 Plan-Gap, dokumentiert in HANDOFF-2026-06-20):
+    // Wenn die folgende payload.update oder commitTransaction fehlschlägt,
+    // bleibt der PR auf GitHub gemerged, aber die Submission ist noch im
+    // reviewStatus=in_review-State. Retry des "Annehmen"-Klicks würde
+    // mergeSubmissionPR nochmal aufrufen → GitHub 405 "not mergeable".
+    // Mitigation für V1.5: Christoph erkennt den half-committed State im
+    // Admin (Submission-Status != accepted, aber PR ist schon merged) und
+    // kann manuell den Status nachsetzen. V1.6 sollte Compensating-Action
+    // oder Submission-Update außerhalb der Transaction implementieren.
     await payload.update({
       collection: 'submissions',
       id: submissionId,
@@ -205,7 +212,6 @@ export async function acceptAction(submissionId: number): Promise<ActionResult> 
           `Liebe Grüße,\ndas PflegeAtlas-Team`,
       });
     }
-    void articleId;
     return { ok: true };
   } catch (err) {
     await payload.db.rollbackTransaction(txn);
