@@ -134,6 +134,17 @@ export const Submissions: CollectionConfig = {
     ],
   },
   fields: [
+    // Workflow-Buttons UI-Field (Payload 3.x custom component, renders above all other fields)
+    {
+      name: 'workflowButtons',
+      type: 'ui',
+      admin: {
+        components: {
+          Field:
+            'src/components/admin/SubmissionWorkflowButtons.tsx#SubmissionWorkflowButtons',
+        },
+      },
+    },
     {
       name: 'type',
       type: 'select',
