@@ -141,7 +141,7 @@ export const Submissions: CollectionConfig = {
       admin: {
         components: {
           Field:
-            'src/components/admin/SubmissionWorkflowButtons.tsx#SubmissionWorkflowButtons',
+            'src/components/admin/SubmissionWorkflowField.tsx#SubmissionWorkflowField',
         },
       },
     },
