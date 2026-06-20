@@ -8,6 +8,7 @@ const VARS = [
   'GITHUB_REPO_OWNER',
   'GITHUB_REPO_NAME',
   'NODE_ENV',
+  'NEXT_PHASE',
 ];
 
 describe('getGithubConfig', () => {
@@ -84,6 +85,12 @@ describe('assertGithubConfigInProduction', () => {
     process.env.GITHUB_APP_ID = '1';
     process.env.GITHUB_APP_INSTALLATION_ID = '2';
     process.env.GITHUB_APP_PRIVATE_KEY = 'x';
+    expect(() => assertGithubConfigInProduction()).not.toThrow();
+  });
+
+  it('does nothing during next build phase even in production', () => {
+    process.env.NODE_ENV = 'production';
+    process.env.NEXT_PHASE = 'phase-production-build';
     expect(() => assertGithubConfigInProduction()).not.toThrow();
   });
 });
