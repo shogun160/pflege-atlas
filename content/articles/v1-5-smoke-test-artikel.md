@@ -12,7 +12,7 @@ standardsBound: false
 
 ## Definition
 
-4 Sektionen (Definition / Praxis / Risiken / Quellen): Test-Korrektur für Flow-3-Reject-Smoke.
+4 Sektionen (Definition / Praxis / Risiken / Quellen): Test-Korrektur  ablehnen für Flow-3-Reject-Smoke.
 
 ## Praxis
 
