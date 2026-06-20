@@ -1,7 +1,8 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
 import 'dotenv/config';
 import { getPayload } from 'payload';
 import config from '@/payload.config';
+import { upsertArticleMarkdown } from '@/lib/github-article-sync';
 
 let payload: Awaited<ReturnType<typeof getPayload>>;
 
@@ -90,5 +91,46 @@ describe('Articles Collection', () => {
 
     expect(found.docs.length).toBe(1);
     expect(found.docs[0]!.title).toBe(title);
+  });
+
+  // Regression: V1.5-Hook hat 2026-06-20 zwei echte Bot-Commits ins
+  // main produziert (838284a, 5749a2d), weil dieser Test mit echten
+  // GITHUB_APP_*-Credentials aus .env läuft. `tests/setup.node.ts`
+  // mockt den GitHub-Layer global — hier prüfen wir den Mock.
+  it('feuert den V1.5-Hook, ohne echtes Markdown ins Repo zu pushen', async () => {
+    const ts = Date.now();
+    const title = `Test-Dekubitus-${ts}`;
+    const expectedSlug = `test-dekubitus-${ts}`;
+
+    const user = await payload.create({
+      collection: 'users',
+      data: {
+        email: `test-${ts}@example.com`,
+        password: 'test-pw-12345!',
+        displayName: 'Test Autor',
+        role: 'editor',
+      },
+    });
+
+    vi.mocked(upsertArticleMarkdown).mockClear();
+
+    await payload.create({
+      collection: 'articles',
+      data: {
+        title,
+        intent: 'bedside',
+        summary: 'Hook-Push-Regression',
+        definition: makeLexicalDoc('def') as any,
+        praxis: makeLexicalDoc('pr') as any,
+        risiken: makeLexicalDoc('ri') as any,
+        quellen: makeLexicalDoc('qu') as any,
+        authors: [user.id],
+        status: 'published',
+      },
+    });
+
+    expect(vi.mocked(upsertArticleMarkdown)).toHaveBeenCalledTimes(1);
+    const call = vi.mocked(upsertArticleMarkdown).mock.calls[0]!;
+    expect(call[1]).toMatchObject({ slug: expectedSlug });
   });
 });
