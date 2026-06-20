@@ -50,10 +50,10 @@ export function renderArticleMarkdown(article: ArticleInput, authorNames: string
   });
 
   const sections = [
-    `## Definition\n\n${lexicalToMarkdown(article.definition as never)}`,
-    `## Praxis\n\n${lexicalToMarkdown(article.praxis as never)}`,
-    `## Risiken & Fallstricke\n\n${lexicalToMarkdown(article.risiken as never)}`,
-    `## Quellen & Weiterführendes\n\n${lexicalToMarkdown(article.quellen as never)}`,
+    `## Definition\n\n${lexicalToMarkdown(article.definition)}`,
+    `## Praxis\n\n${lexicalToMarkdown(article.praxis)}`,
+    `## Risiken & Fallstricke\n\n${lexicalToMarkdown(article.risiken)}`,
+    `## Quellen & Weiterführendes\n\n${lexicalToMarkdown(article.quellen)}`,
   ];
 
   return `---\n${yamlBlock}---\n\n${sections.join('\n\n')}\n`;

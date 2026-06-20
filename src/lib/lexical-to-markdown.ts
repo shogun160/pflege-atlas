@@ -7,14 +7,12 @@ type Node = {
   format?: number;
 };
 
-type RootInput = Node | { root: Node } | null | undefined;
-
 const FORMAT_BOLD = 1;
 const FORMAT_ITALIC = 2;
 
-function unwrap(input: RootInput): Node | null {
-  if (!input) return null;
-  if (typeof input === 'object' && 'root' in input && (input as { root?: unknown }).root) {
+function unwrap(input: unknown): Node | null {
+  if (!input || typeof input !== 'object') return null;
+  if ('root' in input && (input as { root?: unknown }).root) {
     return (input as { root: Node }).root;
   }
   return input as Node;
@@ -67,7 +65,7 @@ function renderBlock(node: Node): string {
   return renderInline(node.children);
 }
 
-export function lexicalToMarkdown(input: RootInput): string {
+export function lexicalToMarkdown(input: unknown): string {
   const root = unwrap(input);
   if (!root || !Array.isArray(root.children) || root.children.length === 0) return '';
   const blocks = root.children.map((child) => renderBlock(child));
