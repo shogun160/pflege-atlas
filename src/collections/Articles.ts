@@ -94,21 +94,17 @@ export const Articles: CollectionConfig = {
     useAsTitle: 'title',
     defaultColumns: ['title', 'status', 'lastReviewedAt', 'standardsBound'],
   },
-  // V1: `status` (Entwurf/In Review/Veröffentlicht/Archiviert) ist die
-  // alleinige Visibility-Quelle für die Read-Access-Rule unten. Payloads
-  // natives `_status` aus dem drafts-Workflow bleibt für interne Versionen
-  // erhalten, wird aber im Editorial-Flow nicht benutzt. Auf den nativen
-  // Draft-Workflow wechseln wir später mit dem Auth/Editorial-Plan.
+  // `status` ist die alleinige Sichtbarkeits-Quelle (siehe Read-Access-
+  // Rule unten). Payloads native Draft-Funktion (`versions.drafts`) ist
+  // bewusst deaktiviert: ein zweites paralleles Status-Konzept (`_status`)
+  // hat im Smoke-Test wiederholt zur UX-Falle geführt (Bug 3, Track F
+  // 2026-06-20). Audit-Trail kommt über V1.5-GitHub-Sync.
   hooks: {
     afterChange: [
       async (args) => {
         await afterArticleChangeHook(args as never);
       },
     ],
-  },
-  versions: {
-    drafts: true,
-    maxPerDoc: 50,
   },
   access: {
     read: ({ req: { user } }) => {
@@ -218,8 +214,9 @@ export const Articles: CollectionConfig = {
       label: 'Status',
       defaultValue: 'draft',
       admin: {
+        position: 'sidebar',
         description:
-          'Dieses Feld steuert die öffentliche Sichtbarkeit. Nur "Veröffentlicht" ist für Leser:innen sichtbar.',
+          'Steuert die öffentliche Sichtbarkeit. Nur "Veröffentlicht" ist für Leser:innen sichtbar — kein zweiter Toggle nötig.',
       },
       options: [
         { label: 'Entwurf', value: 'draft' },
