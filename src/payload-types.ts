@@ -222,7 +222,7 @@ export interface Article {
     };
     [k: string]: unknown;
   };
-  authors: (number | User)[];
+  authors?: (number | User)[] | null;
   reviewedBy?: (number | User)[] | null;
   lastReviewedAt?: string | null;
   standardsBound?: boolean | null;
@@ -372,6 +372,13 @@ export interface Submission {
   correctionReason?: string | null;
   submitterName?: string | null;
   submitterEmail?: string | null;
+  /**
+   * Wird beim "In Review nehmen" automatisch befüllt, kann hier angepasst werden.
+   */
+  proposedSlug?: string | null;
+  prNumber?: number | null;
+  prBranch?: string | null;
+  prState?: ('open' | 'merged' | 'closed') | null;
   reviewStatus?: ('pending' | 'in_review' | 'accepted' | 'rejected') | null;
   reviewerNotes?: string | null;
   updatedAt: string;
@@ -547,6 +554,10 @@ export interface SubmissionsSelect<T extends boolean = true> {
   correctionReason?: T;
   submitterName?: T;
   submitterEmail?: T;
+  proposedSlug?: T;
+  prNumber?: T;
+  prBranch?: T;
+  prState?: T;
   reviewStatus?: T;
   reviewerNotes?: T;
   updatedAt?: T;

@@ -1,4 +1,9 @@
 import type { CollectionConfig } from 'payload';
+import { getOctokit } from '@/lib/github-app';
+import { getGithubConfig } from '@/lib/env';
+import { pushSubmissionEdit } from '@/lib/github-pr';
+import { applySubmissionToArticle } from '@/lib/submission-to-article';
+import { renderArticleMarkdown } from '@/lib/article-markdown';
 
 const SECTIONS = ['definition', 'praxis', 'risiken', 'quellen'] as const;
 
@@ -7,6 +12,82 @@ const conditionNewArticle = (data: Record<string, unknown> | undefined) =>
 
 const conditionCorrection = (data: Record<string, unknown> | undefined) =>
   data?.type === 'correction';
+
+/**
+ * Eventually-consistent GitHub sync.
+ *
+ * Octokit failures are caught and logged but do NOT roll back the Payload
+ * DB save. Reason: Payload's afterChange hooks are isolated from the
+ * outer transaction. The next save attempt will retry the sync.
+ *
+ * For atomic GitHub+DB writes use the T12 server actions instead
+ * (in src/app/(payload)/admin/submission-actions.ts).
+ */
+export async function afterSubmissionChangeHook(args: {
+  operation: 'create' | 'update' | string;
+  doc: Record<string, unknown>;
+  previousDoc: Record<string, unknown>;
+  req: { payload: { findByID: (a: unknown) => Promise<unknown> } };
+}): Promise<void> {
+  if (args.operation !== 'update') return;
+  const doc = args.doc as {
+    id: number;
+    type?: string;
+    reviewStatus?: string;
+    prBranch?: string | null;
+    proposedSlug?: string | null;
+    relatedArticle?: number | null;
+  };
+  if (doc.reviewStatus !== 'in_review' || !doc.prBranch) return;
+
+  let article: unknown = null;
+  if (doc.type === 'correction' && doc.relatedArticle) {
+    const relatedRaw = doc.relatedArticle as number | { id: number };
+    const relatedId =
+      typeof relatedRaw === 'object' && relatedRaw !== null ? relatedRaw.id : relatedRaw;
+    article = await args.req.payload.findByID({
+      collection: 'articles',
+      id: relatedId,
+      depth: 0,
+    });
+  }
+
+  const apply = applySubmissionToArticle(doc as never, article as never);
+  const snapshot = { ...(article as object), ...apply.patch, slug: apply.slug, status: 'published' };
+  const markdown = renderArticleMarkdown({ id: 0, ...snapshot } as never, []);
+
+  const cfg = getGithubConfig();
+  const owner = cfg?.owner ?? 'shogun160';
+  const repo = cfg?.repo ?? 'pflege-atlas';
+  const octokit = getOctokit();
+
+  const newPath = `content/articles/${apply.slug}.md`;
+  const oldPath =
+    doc.type === 'new_article' &&
+    (args.previousDoc as { proposedSlug?: string }).proposedSlug &&
+    (args.previousDoc as { proposedSlug?: string }).proposedSlug !== apply.slug
+      ? `content/articles/${(args.previousDoc as { proposedSlug?: string }).proposedSlug}.md`
+      : undefined;
+
+  try {
+    await pushSubmissionEdit(octokit, {
+      owner,
+      repo,
+      branch: doc.prBranch,
+      path: newPath,
+      oldPath,
+      markdown,
+      message: `submission(${doc.id}): editorial revision`,
+    });
+  } catch (err) {
+    // Hook errors don't roll back the DB save (Payload isolates them).
+    // The next submission edit will retry the sync.
+    console.error(
+      `[V1.5] Failed to re-push submission ${doc.id} to GitHub:`,
+      err instanceof Error ? err.message : err,
+    );
+  }
+}
 
 export const Submissions: CollectionConfig = {
   slug: 'submissions',
@@ -21,6 +102,11 @@ export const Submissions: CollectionConfig = {
     delete: ({ req: { user } }) => user?.role === 'editor',
   },
   hooks: {
+    afterChange: [
+      async (args) => {
+        await afterSubmissionChangeHook(args as never);
+      },
+    ],
     beforeChange: [
       async ({ data, req }) => {
         if (!data) return data;
@@ -51,6 +137,18 @@ export const Submissions: CollectionConfig = {
     ],
   },
   fields: [
+    // Workflow-Buttons UI-Field — rendert in der rechten Sidebar unter den PR-Tracking-Feldern
+    {
+      name: 'workflowButtons',
+      type: 'ui',
+      admin: {
+        position: 'sidebar',
+        components: {
+          Field:
+            'src/components/admin/SubmissionWorkflowField.tsx#SubmissionWorkflowField',
+        },
+      },
+    },
     {
       name: 'type',
       type: 'select',
@@ -106,12 +204,33 @@ export const Submissions: CollectionConfig = {
       admin: { condition: conditionNewArticle },
     })),
     // ====== correction fields ======
-    ...SECTIONS.map((section) => ({
-      name: `edited${section.charAt(0).toUpperCase()}${section.slice(1)}`,
-      type: 'richText' as const,
-      label: `Editierte Sektion: ${section}`,
-      admin: { condition: conditionCorrection },
-    })),
+    ...SECTIONS.map((section) => {
+      const fieldName = `edited${section.charAt(0).toUpperCase()}${section.slice(1)}`;
+      return {
+        name: fieldName,
+        type: 'richText' as const,
+        label: `Editierte Sektion: ${section}`,
+        admin: {
+          condition: (data: Record<string, unknown> | undefined) => {
+            if (!conditionCorrection(data)) return false;
+            const value = data?.[fieldName];
+            if (!value || typeof value !== 'object') return false;
+            const root = (value as { root?: { children?: unknown[] } }).root;
+            if (!root || !Array.isArray(root.children) || root.children.length === 0) {
+              return false;
+            }
+            const hasText = (node: unknown): boolean => {
+              if (typeof node !== 'object' || node === null) return false;
+              const n = node as { text?: unknown; children?: unknown[] };
+              if (typeof n.text === 'string' && n.text.trim().length > 0) return true;
+              if (Array.isArray(n.children)) return n.children.some(hasText);
+              return false;
+            };
+            return root.children.some(hasText);
+          },
+        },
+      };
+    }),
     {
       name: 'correctionReason',
       type: 'textarea',
@@ -129,6 +248,39 @@ export const Submissions: CollectionConfig = {
       name: 'submitterEmail',
       type: 'email',
       label: 'E-Mail (für Rückfragen, optional)',
+    },
+    // ====== V1.5 PR-tracking + slug override ======
+    {
+      name: 'proposedSlug',
+      type: 'text',
+      label: 'Slug (URL-Pfad nach Annahme)',
+      admin: {
+        condition: conditionNewArticle,
+        description: 'Wird beim "In Review nehmen" automatisch befüllt, kann hier angepasst werden.',
+      },
+    },
+    {
+      name: 'prNumber',
+      type: 'number',
+      label: 'PR-Nummer',
+      admin: { readOnly: true, position: 'sidebar' },
+    },
+    {
+      name: 'prBranch',
+      type: 'text',
+      label: 'PR-Branch',
+      admin: { readOnly: true, position: 'sidebar' },
+    },
+    {
+      name: 'prState',
+      type: 'select',
+      label: 'PR-Status',
+      options: [
+        { label: 'Offen', value: 'open' },
+        { label: 'Gemerged', value: 'merged' },
+        { label: 'Geschlossen', value: 'closed' },
+      ],
+      admin: { readOnly: true, position: 'sidebar' },
     },
     {
       name: 'reviewStatus',

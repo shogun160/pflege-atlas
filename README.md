@@ -104,6 +104,10 @@ Beiträge — Code wie Inhalt — sind willkommen. Bitte vorher kurz in [CONTRIB
 
 Du willst einen Artikel oder eine Korrektur einreichen? Das geht direkt auf der laufenden Plattform unter [`/einreichen`](./src/app/(frontend)/einreichen/page.tsx) (Formular im Aufbau, vorerst per Mail an `mitmachen@pflegeatlas.org`).
 
+Seit V1.5: Angenommene Beiträge werden zusätzlich als PRs im Repo gespiegelt
+(`content/articles/<slug>.md`). Dafür wird eine GitHub App benötigt —
+Setup-Schritte siehe `.env.example`.
+
 ## Lizenz
 
 | Was | Lizenz |

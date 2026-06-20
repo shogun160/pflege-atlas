@@ -66,4 +66,9 @@ describe('SubmissionForm', () => {
     render(<SubmissionForm {...baseProps} />);
     expect(screen.getByRole('button', { name: /Turnstile mock/i })).toBeInTheDocument();
   });
+
+  it('renders PII notice above form fields', () => {
+    render(<SubmissionForm {...baseProps} />);
+    expect(screen.getByText(/keine Namen, Initialen/i)).toBeInTheDocument();
+  });
 });

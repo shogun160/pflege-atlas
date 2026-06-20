@@ -7,6 +7,7 @@ import { ErrorSummary } from './ErrorSummary';
 import { NewArticleFields, type NewArticleValues, type NewArticleSetters } from './NewArticleFields';
 import { CorrectionFields, type CorrectionValues, type CorrectionSetters } from './CorrectionFields';
 import { submitAction, type SubmitState } from '@/app/(frontend)/einreichen/actions';
+import { PiiNotice } from './PiiNotice';
 
 type Type = 'new_article' | 'correction';
 type Section = '' | 'definition' | 'praxis' | 'risiken' | 'quellen';
@@ -180,6 +181,7 @@ export function SubmissionForm({
         }}
       />
       <form action={formAction} noValidate className="space-y-6">
+        <PiiNotice />
         {state.error && (
           <p role="alert" className="rounded-lg border-l-4 border-accent bg-surface p-4">
             {state.error}

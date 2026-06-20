@@ -1,5 +1,66 @@
 import type { CollectionConfig } from 'payload';
 import { slugify } from '../lib/slugify';
+import { getOctokit } from '@/lib/github-app';
+import { getGithubConfig } from '@/lib/env';
+import { upsertArticleMarkdown, deleteArticleMarkdown } from '@/lib/github-article-sync';
+import { renderArticleMarkdown } from '@/lib/article-markdown';
+
+/**
+ * Eventually-consistent GitHub sync.
+ *
+ * Octokit failures are caught and logged but do NOT roll back the Payload
+ * DB save. Reason: Payload's afterChange hooks are isolated from the
+ * outer transaction. The next save attempt will retry the sync.
+ *
+ * For atomic GitHub+DB writes use the T12 server actions instead
+ * (in src/app/(payload)/admin/submission-actions.ts).
+ */
+export async function afterArticleChangeHook(args: {
+  operation: 'create' | 'update' | string;
+  doc: Record<string, unknown>;
+  previousDoc: Record<string, unknown>;
+  req: {
+    context?: { skipMarkdownSync?: boolean };
+    payload: { find: (a: unknown) => Promise<{ docs: { name?: string }[] }> };
+  };
+}): Promise<void> {
+  if (args.req?.context?.skipMarkdownSync) return;
+
+  const doc = args.doc as { id: number; slug?: string; status?: string };
+  const prev = args.previousDoc as { status?: string };
+
+  const wasPublished = prev.status === 'published';
+  const isPublished = doc.status === 'published';
+
+  const cfg = getGithubConfig();
+  const owner = cfg?.owner ?? 'shogun160';
+  const repo = cfg?.repo ?? 'pflege-atlas';
+  const octokit = getOctokit();
+
+  if (!isPublished && wasPublished && doc.slug) {
+    try {
+      await deleteArticleMarkdown(octokit, { owner, repo, slug: doc.slug });
+    } catch (err) {
+      console.error(
+        `[V1.5] Failed to delete article markdown for ${doc.slug}:`,
+        err instanceof Error ? err.message : err,
+      );
+    }
+    return;
+  }
+
+  if (isPublished && doc.slug) {
+    try {
+      const markdown = renderArticleMarkdown(doc as never, []);
+      await upsertArticleMarkdown(octokit, { owner, repo, slug: doc.slug, markdown });
+    } catch (err) {
+      console.error(
+        `[V1.5] Failed to sync article markdown for ${doc.slug}:`,
+        err instanceof Error ? err.message : err,
+      );
+    }
+  }
+}
 
 export const Articles: CollectionConfig = {
   slug: 'articles',
@@ -12,6 +73,13 @@ export const Articles: CollectionConfig = {
   // natives `_status` aus dem drafts-Workflow bleibt für interne Versionen
   // erhalten, wird aber im Editorial-Flow nicht benutzt. Auf den nativen
   // Draft-Workflow wechseln wir später mit dem Auth/Editorial-Plan.
+  hooks: {
+    afterChange: [
+      async (args) => {
+        await afterArticleChangeHook(args as never);
+      },
+    ],
+  },
   versions: {
     drafts: true,
     maxPerDoc: 50,
@@ -99,7 +167,6 @@ export const Articles: CollectionConfig = {
       label: 'Autor:innen',
       relationTo: 'users',
       hasMany: true,
-      required: true,
     },
     {
       name: 'reviewedBy',

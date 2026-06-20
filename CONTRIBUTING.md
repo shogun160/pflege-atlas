@@ -53,3 +53,15 @@ Mit dem Einreichen von Code stimmst du der Lizenzierung unter [MIT](./LICENSE) z
 ## Kommunikation
 
 Aktuell läuft die Koordination per Mail / Issue-Tracker. Sobald sich eine sinnvolle zweite Kanal-Ebene findet (Discord/Slack/Matrix), wird das hier ergänzt.
+
+## Pull-Requests
+
+- **Inhalts-PRs** (Branch-Name beginnt mit `submission/`) werden von
+  **Christoph** (`@primus-homeassistant`) gemerged. Sie entstehen automatisch
+  beim „In Review nehmen"-Klick im Payload-Admin und enthalten den
+  Markdown-Diff des betroffenen Artikels.
+- **Code-PRs** (alles andere) werden von **Oliver** (`@shogun160`) gemerged.
+- Beide können einspringen — keine harte CODEOWNERS-Enforcement.
+- Die Admin-Aktionen „Annehmen" / „Ablehnen" mergen / schließen die PRs
+  programmatisch; manuelles Merge im GitHub-UI ist nicht der vorgesehene Weg
+  für Submission-PRs.

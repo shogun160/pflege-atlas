@@ -1,7 +1,11 @@
 import { defineConfig } from 'vitest/config';
 import path from 'node:path';
 
-const alias = { '@': path.resolve(__dirname, './src') };
+const alias = {
+  '@': path.resolve(__dirname, './src'),
+  // Next.js `server-only` is not a real npm package in this project; stub it out for Vitest.
+  'server-only': path.resolve(__dirname, './tests/stubs/server-only.ts'),
+};
 
 export default defineConfig({
   test: {
