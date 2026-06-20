@@ -1,6 +1,6 @@
 ---
 payloadId: 0
-slug: null
+slug: v1-5-smoke-test-artikel
 title: V1.5 Smoke Test Artikel
 intent: background
 summary: Testbeitrag zur Verifizierung des V1.5 PR-Workflows
