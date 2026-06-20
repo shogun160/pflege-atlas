@@ -42,9 +42,12 @@ export async function afterSubmissionChangeHook(args: {
 
   let article: unknown = null;
   if (doc.type === 'correction' && doc.relatedArticle) {
+    const relatedRaw = doc.relatedArticle as number | { id: number };
+    const relatedId =
+      typeof relatedRaw === 'object' && relatedRaw !== null ? relatedRaw.id : relatedRaw;
     article = await args.req.payload.findByID({
       collection: 'articles',
-      id: doc.relatedArticle,
+      id: relatedId,
       depth: 0,
     });
   }
@@ -201,12 +204,33 @@ export const Submissions: CollectionConfig = {
       admin: { condition: conditionNewArticle },
     })),
     // ====== correction fields ======
-    ...SECTIONS.map((section) => ({
-      name: `edited${section.charAt(0).toUpperCase()}${section.slice(1)}`,
-      type: 'richText' as const,
-      label: `Editierte Sektion: ${section}`,
-      admin: { condition: conditionCorrection },
-    })),
+    ...SECTIONS.map((section) => {
+      const fieldName = `edited${section.charAt(0).toUpperCase()}${section.slice(1)}`;
+      return {
+        name: fieldName,
+        type: 'richText' as const,
+        label: `Editierte Sektion: ${section}`,
+        admin: {
+          condition: (data: Record<string, unknown> | undefined) => {
+            if (!conditionCorrection(data)) return false;
+            const value = data?.[fieldName];
+            if (!value || typeof value !== 'object') return false;
+            const root = (value as { root?: { children?: unknown[] } }).root;
+            if (!root || !Array.isArray(root.children) || root.children.length === 0) {
+              return false;
+            }
+            const hasText = (node: unknown): boolean => {
+              if (typeof node !== 'object' || node === null) return false;
+              const n = node as { text?: unknown; children?: unknown[] };
+              if (typeof n.text === 'string' && n.text.trim().length > 0) return true;
+              if (Array.isArray(n.children)) return n.children.some(hasText);
+              return false;
+            };
+            return root.children.some(hasText);
+          },
+        },
+      };
+    }),
     {
       name: 'correctionReason',
       type: 'textarea',

@@ -80,7 +80,8 @@ export async function inReviewAction(submissionId: number): Promise<ActionResult
       }
       articleSnapshot = applySubmissionToArticle(sub as never, null).patch;
     } else {
-      const related = (sub as { relatedArticle?: number }).relatedArticle;
+      const relatedRaw = (sub as { relatedArticle?: number | { id: number } }).relatedArticle;
+      const related = typeof relatedRaw === 'object' && relatedRaw !== null ? relatedRaw.id : relatedRaw;
       if (!related) return { ok: false, error: 'Correction submission missing relatedArticle' };
       const article = await payload.findByID({ collection: 'articles', id: related, depth: 0 });
       const apply = applySubmissionToArticle(sub as never, article as never);
@@ -159,7 +160,8 @@ export async function acceptAction(submissionId: number): Promise<ActionResult> 
         } as never,
       });
     } else {
-      const related = (sub as { relatedArticle?: number }).relatedArticle;
+      const relatedRaw = (sub as { relatedArticle?: number | { id: number } }).relatedArticle;
+      const related = typeof relatedRaw === 'object' && relatedRaw !== null ? relatedRaw.id : relatedRaw;
       if (!related) return { ok: false, error: 'Correction missing relatedArticle' };
       const article = await payload.findByID({ collection: 'articles', id: related, depth: 0, req: { transactionID: txn } as never });
       const apply = applySubmissionToArticle(sub as never, article as never);

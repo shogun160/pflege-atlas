@@ -60,17 +60,20 @@ export async function createSubmissionPR(
   const branch = `submission/${submissionId}`;
 
   const main = await octokit.rest.git.getRef({ owner, repo, ref: 'heads/main' });
-  // IMPORTANT: If a retry occurs after createRef succeeded but pulls.create failed,
-  // GitHub returns 422 "Reference already exists" here. T12's inReviewAction is
-  // expected to be the caller's atomic boundary — it should catch 422 from
-  // createSubmissionPR and either treat it as "branch already exists, continue
-  // with file write + PR open" or roll back the previous half-state.
-  await octokit.rest.git.createRef({
-    owner,
-    repo,
-    ref: `refs/heads/${branch}`,
-    sha: main.data.object.sha,
-  });
+  // 422 "Reference already exists" wird abgefangen: vorheriger Versuch hatte den
+  // Branch erstellt, aber file-write oder PR-open scheiterten. Branch wird dann
+  // wiederverwendet — createOrUpdateFileContents nutzt den bestehenden tree und
+  // pulls.create öffnet einen PR auf dem schon-bestehenden Branch.
+  try {
+    await octokit.rest.git.createRef({
+      owner,
+      repo,
+      ref: `refs/heads/${branch}`,
+      sha: main.data.object.sha,
+    });
+  } catch (err) {
+    if ((err as { status?: number }).status !== 422) throw err;
+  }
 
   const path = `content/articles/${slug}.md`;
   const existingSha = await getFileSha(octokit, owner, repo, path, branch);

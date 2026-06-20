@@ -1,3 +1,5 @@
+import { lexicalToPlainText } from './lexical-to-plain-text';
+
 type Lexical = unknown;
 
 type NewArticleSub = {
@@ -41,6 +43,16 @@ export type ApplyResult = {
 function isEmpty(value: Lexical): boolean {
   if (!value) return true;
   if (typeof value === 'string') return value.trim() === '';
+  // Lexical-Object: kann eine leere Editor-State sein (nur leerer Paragraph)
+  // → über den Plain-Text-Walker prüfen, ob tatsächlich Inhalt da ist.
+  if (typeof value === 'object') {
+    try {
+      const root = (value as { root?: unknown }).root ?? value;
+      return lexicalToPlainText(root as never).trim() === '';
+    } catch {
+      return false;
+    }
+  }
   return false;
 }
 
