@@ -78,4 +78,9 @@ describe('applySubmissionToArticle (correction)', () => {
     const result = applySubmissionToArticle(sub, article);
     expect(result.slug).toBe('demo');
   });
+
+  it('throws when correction has no article context', () => {
+    const sub = { type: 'correction' as const, editedDefinition: LEX('x') };
+    expect(() => applySubmissionToArticle(sub, null)).toThrow(/Correction.+requires.+article/i);
+  });
 });
