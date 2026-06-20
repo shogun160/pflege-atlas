@@ -5,6 +5,18 @@ import { getGithubConfig } from '@/lib/env';
 import { upsertArticleMarkdown, deleteArticleMarkdown } from '@/lib/github-article-sync';
 import { renderArticleMarkdown } from '@/lib/article-markdown';
 
+export function slugBeforeValidate(args: {
+  data?: { title?: string };
+  value?: string | null;
+}): string | undefined {
+  const { data, value } = args;
+  if (value != null && value !== '') {
+    return slugify(value);
+  }
+  if (data?.title) return slugify(data.title);
+  return value ?? undefined;
+}
+
 /**
  * Eventually-consistent GitHub sync.
  *
@@ -27,29 +39,43 @@ export async function afterArticleChangeHook(args: {
   if (args.req?.context?.skipMarkdownSync) return;
 
   const doc = args.doc as { id: number; slug?: string; status?: string };
-  const prev = args.previousDoc as { status?: string };
+  const prev = args.previousDoc as { status?: string; slug?: string };
 
   const wasPublished = prev.status === 'published';
   const isPublished = doc.status === 'published';
+  const slugChanged = !!prev.slug && !!doc.slug && prev.slug !== doc.slug;
 
   const cfg = getGithubConfig();
   const owner = cfg?.owner ?? 'shogun160';
   const repo = cfg?.repo ?? 'pflege-atlas';
   const octokit = getOctokit();
 
-  if (!isPublished && wasPublished && doc.slug) {
-    try {
-      await deleteArticleMarkdown(octokit, { owner, repo, slug: doc.slug });
-    } catch (err) {
-      console.error(
-        `[V1.5] Failed to delete article markdown for ${doc.slug}:`,
-        err instanceof Error ? err.message : err,
-      );
+  if (!isPublished && wasPublished) {
+    const slugToDelete = prev.slug ?? doc.slug;
+    if (slugToDelete) {
+      try {
+        await deleteArticleMarkdown(octokit, { owner, repo, slug: slugToDelete });
+      } catch (err) {
+        console.error(
+          `[V1.5] Failed to delete article markdown for ${slugToDelete}:`,
+          err instanceof Error ? err.message : err,
+        );
+      }
     }
     return;
   }
 
   if (isPublished && doc.slug) {
+    if (wasPublished && slugChanged && prev.slug) {
+      try {
+        await deleteArticleMarkdown(octokit, { owner, repo, slug: prev.slug });
+      } catch (err) {
+        console.error(
+          `[V1.5] Failed to delete previous article markdown for ${prev.slug}:`,
+          err instanceof Error ? err.message : err,
+        );
+      }
+    }
     try {
       const markdown = renderArticleMarkdown(doc as never, []);
       await upsertArticleMarkdown(octokit, { owner, repo, slug: doc.slug, markdown });
@@ -108,11 +134,11 @@ export const Articles: CollectionConfig = {
       index: true,
       hooks: {
         beforeValidate: [
-          ({ data, value }) => {
-            if (value) return value;
-            if (data?.title) return slugify(data.title);
-            return value;
-          },
+          ({ data, value }) =>
+            slugBeforeValidate({
+              data: data as { title?: string } | undefined,
+              value: value as string | null | undefined,
+            }),
         ],
       },
       admin: {
