@@ -12,7 +12,7 @@ standardsBound: false
 
 ## Definition
 
-4 Sektionen (Definition / Praxis / Risiken / Quellen): jeweils ein-zwei kurze Sätze reintippen (Lexical-Editor)
+4 Sektionen (Definition / Praxis / Risiken / Quellen): Test-Korrektur für Flow-3-Reject-Smoke.
 
 ## Praxis
 
