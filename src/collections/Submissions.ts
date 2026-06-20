@@ -130,6 +130,39 @@ export const Submissions: CollectionConfig = {
       type: 'email',
       label: 'E-Mail (für Rückfragen, optional)',
     },
+    // ====== V1.5 PR-tracking + slug override ======
+    {
+      name: 'proposedSlug',
+      type: 'text',
+      label: 'Slug (URL-Pfad nach Annahme)',
+      admin: {
+        condition: conditionNewArticle,
+        description: 'Wird beim "In Review nehmen" automatisch befüllt, kann hier angepasst werden.',
+      },
+    },
+    {
+      name: 'prNumber',
+      type: 'number',
+      label: 'PR-Nummer',
+      admin: { readOnly: true, position: 'sidebar' },
+    },
+    {
+      name: 'prBranch',
+      type: 'text',
+      label: 'PR-Branch',
+      admin: { readOnly: true, position: 'sidebar' },
+    },
+    {
+      name: 'prState',
+      type: 'select',
+      label: 'PR-Status',
+      options: [
+        { label: 'Offen', value: 'open' },
+        { label: 'Gemerged', value: 'merged' },
+        { label: 'Geschlossen', value: 'closed' },
+      ],
+      admin: { readOnly: true, position: 'sidebar' },
+    },
     {
       name: 'reviewStatus',
       type: 'select',
