@@ -61,6 +61,11 @@ export async function createSubmissionPR(
   const branch = `submission/${submissionId}`;
 
   const main = await octokit.rest.git.getRef({ owner, repo, ref: 'heads/main' });
+  // IMPORTANT: If a retry occurs after createRef succeeded but pulls.create failed,
+  // GitHub returns 422 "Reference already exists" here. T12's inReviewAction is
+  // expected to be the caller's atomic boundary — it should catch 422 from
+  // createSubmissionPR and either treat it as "branch already exists, continue
+  // with file write + PR open" or roll back the previous half-state.
   await octokit.rest.git.createRef({
     owner,
     repo,
@@ -103,7 +108,7 @@ export async function pushSubmissionEdit(
   if (oldPath && oldPath !== path) {
     const oldSha = await getFileSha(octokit, owner, repo, oldPath, branch);
     if (oldSha) {
-      await (octokit.rest.repos as unknown as { deleteFile: (args: Record<string, unknown>) => Promise<unknown> }).deleteFile({
+      await octokit.rest.repos.deleteFile({
         owner,
         repo,
         path: oldPath,
