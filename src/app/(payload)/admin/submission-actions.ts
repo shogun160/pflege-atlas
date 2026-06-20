@@ -132,10 +132,10 @@ export async function inReviewAction(submissionId: number): Promise<ActionResult
       },
     });
 
-    await payload.db.commitTransaction(txn);
+    if (txn != null) await payload.db.commitTransaction(txn);
     return { ok: true };
   } catch (err) {
-    await payload.db.rollbackTransaction(txn);
+    if (txn != null) await payload.db.rollbackTransaction(txn);
     return { ok: false, error: (err as Error).message };
   }
 }
@@ -197,7 +197,7 @@ export async function acceptAction(submissionId: number): Promise<ActionResult> 
       data: { reviewStatus: 'accepted', prState: 'merged' },
     });
 
-    await payload.db.commitTransaction(txn);
+    if (txn != null) await payload.db.commitTransaction(txn);
 
     const email = (sub as { submitterEmail?: string }).submitterEmail;
     if (email) {
@@ -214,7 +214,7 @@ export async function acceptAction(submissionId: number): Promise<ActionResult> 
     }
     return { ok: true };
   } catch (err) {
-    await payload.db.rollbackTransaction(txn);
+    if (txn != null) await payload.db.rollbackTransaction(txn);
     return { ok: false, error: (err as Error).message };
   }
 }
@@ -241,10 +241,10 @@ export async function rejectAction(submissionId: number): Promise<ActionResult> 
       data: { reviewStatus: 'rejected', prState: prNumber ? 'closed' : null },
     });
 
-    await payload.db.commitTransaction(txn);
+    if (txn != null) await payload.db.commitTransaction(txn);
     return { ok: true };
   } catch (err) {
-    await payload.db.rollbackTransaction(txn);
+    if (txn != null) await payload.db.rollbackTransaction(txn);
     return { ok: false, error: (err as Error).message };
   }
 }
