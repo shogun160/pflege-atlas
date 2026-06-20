@@ -36,7 +36,7 @@ describe('renderArticleMarkdown', () => {
     expect(md).toContain('intent: bedside');
     expect(md).toContain('summary: Vorbeugung von Druckgeschwüren');
     expect(md).toContain('status: published');
-    expect(md).toContain('lastReviewedAt:');
+    expect(md).toContain('lastReviewedAt: 2026-06-20');
     expect(md).toContain('standardsBound: true');
     expect(md).toContain('authors:\n  - Christoph Brück');
   });

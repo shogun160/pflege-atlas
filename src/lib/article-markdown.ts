@@ -43,6 +43,7 @@ export function renderArticleMarkdown(article: ArticleInput, authorNames: string
   }
 
   const yamlBlock = yaml.dump(frontmatter, {
+    schema: yaml.JSON_SCHEMA,
     lineWidth: -1,
     noRefs: true,
     sortKeys: false,
