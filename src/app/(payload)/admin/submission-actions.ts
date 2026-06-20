@@ -155,7 +155,6 @@ export async function acceptAction(submissionId: number): Promise<ActionResult> 
         context: { skipMarkdownSync: true },
         data: {
           ...apply.patch,
-          authors: [],
           lastReviewedAt: new Date().toISOString(),
         } as never,
       });

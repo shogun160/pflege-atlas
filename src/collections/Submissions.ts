@@ -134,11 +134,12 @@ export const Submissions: CollectionConfig = {
     ],
   },
   fields: [
-    // Workflow-Buttons UI-Field (Payload 3.x custom component, renders above all other fields)
+    // Workflow-Buttons UI-Field — rendert in der rechten Sidebar unter den PR-Tracking-Feldern
     {
       name: 'workflowButtons',
       type: 'ui',
       admin: {
+        position: 'sidebar',
         components: {
           Field:
             'src/components/admin/SubmissionWorkflowField.tsx#SubmissionWorkflowField',

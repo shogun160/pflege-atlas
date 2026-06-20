@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
+import { Button } from '@payloadcms/ui';
 import {
   inReviewAction,
   acceptAction,
@@ -10,6 +12,7 @@ import {
 type Props = { submissionId: number; reviewStatus: string };
 
 export function SubmissionWorkflowButtons({ submissionId, reviewStatus }: Props) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
 
@@ -17,26 +20,42 @@ export function SubmissionWorkflowButtons({ submissionId, reviewStatus }: Props)
     setMessage(null);
     startTransition(async () => {
       const res = await fn(submissionId);
-      if (res.ok) setMessage('OK — bitte Seite neu laden, um neuen Status zu sehen.');
-      else setMessage(`Fehler: ${res.error ?? 'unbekannt'}`);
+      if (res.ok) {
+        setMessage(null);
+        router.refresh();
+      } else {
+        setMessage(`Fehler: ${res.error ?? 'unbekannt'}`);
+      }
     });
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 12 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16 }}>
       {reviewStatus === 'pending' && (
-        <button type="button" disabled={pending} onClick={() => run(inReviewAction)}>
+        <Button
+          buttonStyle="primary"
+          disabled={pending}
+          onClick={() => run(inReviewAction)}
+        >
           In Review nehmen
-        </button>
+        </Button>
       )}
       {reviewStatus === 'in_review' && (
         <>
-          <button type="button" disabled={pending} onClick={() => run(acceptAction)}>
+          <Button
+            buttonStyle="primary"
+            disabled={pending}
+            onClick={() => run(acceptAction)}
+          >
             Annehmen
-          </button>
-          <button type="button" disabled={pending} onClick={() => run(rejectAction)}>
+          </Button>
+          <Button
+            buttonStyle="secondary"
+            disabled={pending}
+            onClick={() => run(rejectAction)}
+          >
             Ablehnen
-          </button>
+          </Button>
         </>
       )}
       {reviewStatus === 'accepted' && (

@@ -1,5 +1,4 @@
 // src/lib/github-article-sync.ts
-import 'server-only';
 import type { Octokit } from '@octokit/rest';
 
 type RepoRef = { owner: string; repo: string };

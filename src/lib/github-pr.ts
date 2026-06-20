@@ -1,5 +1,4 @@
 // src/lib/github-pr.ts
-import 'server-only';
 import type { Octokit } from '@octokit/rest';
 
 export type SyncResult = {

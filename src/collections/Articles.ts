@@ -167,7 +167,6 @@ export const Articles: CollectionConfig = {
       label: 'Autor:innen',
       relationTo: 'users',
       hasMany: true,
-      required: true,
     },
     {
       name: 'reviewedBy',

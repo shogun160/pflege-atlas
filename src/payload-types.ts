@@ -222,7 +222,7 @@ export interface Article {
     };
     [k: string]: unknown;
   };
-  authors: (number | User)[];
+  authors?: (number | User)[] | null;
   reviewedBy?: (number | User)[] | null;
   lastReviewedAt?: string | null;
   standardsBound?: boolean | null;

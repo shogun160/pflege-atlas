@@ -1,6 +1,6 @@
+import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { SubmissionWorkflowButtons } from '@/components/admin/SubmissionWorkflowButtons';
 
 const mocks = vi.hoisted(() => ({
   inReviewAction: vi.fn().mockResolvedValue({ ok: true }),
@@ -9,6 +9,31 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('@/app/(payload)/admin/submission-actions', () => mocks);
+
+// @payloadcms/ui pulls in CSS via react-image-crop which jsdom can't parse —
+// stub the only export we use (Button) with a plain HTML button.
+vi.mock('@payloadcms/ui', () => ({
+  Button: ({
+    children,
+    onClick,
+    disabled,
+  }: {
+    children: ReactNode;
+    onClick?: () => void;
+    disabled?: boolean;
+    buttonStyle?: string;
+  }) => (
+    <button type="button" onClick={onClick} disabled={disabled}>
+      {children}
+    </button>
+  ),
+}));
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }),
+}));
+
+import { SubmissionWorkflowButtons } from '@/components/admin/SubmissionWorkflowButtons';
 
 describe('SubmissionWorkflowButtons', () => {
   it('shows "In Review nehmen" when status=pending', () => {
