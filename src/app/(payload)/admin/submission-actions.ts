@@ -1,0 +1,244 @@
+'use server';
+
+import 'server-only';
+import { getPayloadClient } from '@/lib/payload';
+import { getOctokit } from '@/lib/github-app';
+import { getGithubConfig } from '@/lib/env';
+import { slugify } from '@/lib/slugify';
+import { resolveUniqueSlug } from '@/lib/slug-resolver';
+import { renderArticleMarkdown } from '@/lib/article-markdown';
+import { applySubmissionToArticle } from '@/lib/submission-to-article';
+import {
+  createSubmissionPR,
+  mergeSubmissionPR,
+  closeSubmissionPR,
+} from '@/lib/github-pr';
+
+export type ActionResult = { ok: true } | { ok: false; error: string };
+
+function repoCfg() {
+  const cfg = getGithubConfig();
+  return {
+    owner: cfg?.owner ?? 'shogun160',
+    repo: cfg?.repo ?? 'pflege-atlas',
+  };
+}
+
+function buildPRBody(args: {
+  submissionId: number;
+  type: 'new_article' | 'correction';
+  sections?: string[];
+  proposedSlug?: string;
+  correctionReason?: string;
+}): string {
+  const typeLabel = args.type === 'new_article' ? 'Neuer Artikelvorschlag' : 'Korrektur';
+  const lines: string[] = [];
+  lines.push(`**Typ:** ${typeLabel}`);
+  if (args.type === 'correction' && args.sections?.length) {
+    lines.push(`**Betroffene Sektionen:** ${args.sections.join(', ')}`);
+  }
+  if (args.type === 'new_article' && args.proposedSlug) {
+    lines.push(`**Slug-Vorschlag:** \`${args.proposedSlug}\``);
+  }
+  lines.push(
+    `**Admin-Link:** https://pflegeatlas.org/admin/collections/submissions/${args.submissionId}`,
+  );
+  if (args.correctionReason) {
+    lines.push('', '**Begründung der/des Einreichenden:**');
+    lines.push(...args.correctionReason.split('\n').map((l) => `> ${l}`));
+  }
+  lines.push('', '---', '');
+  lines.push(
+    '*Submitter-Daten (Name/E-Mail) bleiben in der Datenbank und werden nicht hier veröffentlicht.*',
+  );
+  return lines.join('\n');
+}
+
+export async function inReviewAction(submissionId: number): Promise<ActionResult> {
+  const payload = await getPayloadClient();
+  const sub = await payload.findByID({ collection: 'submissions', id: submissionId, depth: 0 });
+  if (!sub) return { ok: false, error: 'Submission not found' };
+
+  const txn = await payload.db.beginTransaction();
+  try {
+    let slug = (sub as { proposedSlug?: string }).proposedSlug ?? '';
+    let articleSnapshot: Record<string, unknown> | null = null;
+    const sections: string[] = [];
+
+    if (sub.type === 'new_article') {
+      if (!slug) {
+        const base = slugify((sub as { proposedTitle?: string }).proposedTitle ?? '');
+        slug = await resolveUniqueSlug(base, async (candidate) => {
+          const res = await payload.find({
+            collection: 'articles',
+            where: { slug: { equals: candidate } },
+            limit: 1,
+          });
+          return res.docs.length > 0;
+        });
+      }
+      articleSnapshot = applySubmissionToArticle(sub as never, null).patch;
+    } else {
+      const related = (sub as { relatedArticle?: number }).relatedArticle;
+      if (!related) return { ok: false, error: 'Correction submission missing relatedArticle' };
+      const article = await payload.findByID({ collection: 'articles', id: related, depth: 0 });
+      const apply = applySubmissionToArticle(sub as never, article as never);
+      slug = apply.slug;
+      articleSnapshot = { ...article, ...apply.patch };
+      ['definition', 'praxis', 'risiken', 'quellen'].forEach((s) => {
+        if (apply.patch[s] !== undefined) sections.push(s);
+      });
+    }
+
+    const markdown = renderArticleMarkdown(
+      { id: 0, slug, ...articleSnapshot, status: 'published' } as never,
+      [],
+    );
+    const title =
+      sub.type === 'new_article'
+        ? `[Vorschlag] ${(sub as { proposedTitle?: string }).proposedTitle ?? slug}`
+        : `[Korrektur] ${(articleSnapshot as { title?: string }).title ?? slug}`;
+    const body = buildPRBody({
+      submissionId,
+      type: sub.type as 'new_article' | 'correction',
+      sections,
+      proposedSlug: sub.type === 'new_article' ? slug : undefined,
+      correctionReason: (sub as { correctionReason?: string }).correctionReason,
+    });
+
+    const octokit = getOctokit();
+    const { owner, repo } = repoCfg();
+    const prResult = await createSubmissionPR(octokit, {
+      owner,
+      repo,
+      submissionId,
+      slug,
+      markdown,
+      title,
+      body,
+    });
+
+    await payload.update({
+      collection: 'submissions',
+      id: submissionId,
+      req: { transactionID: txn } as never,
+      data: {
+        reviewStatus: 'in_review',
+        prNumber: prResult.prNumber,
+        prBranch: prResult.prBranch,
+        prState: prResult.prState === 'skipped' ? null : prResult.prState,
+        proposedSlug: sub.type === 'new_article' ? slug : undefined,
+      },
+    });
+
+    await payload.db.commitTransaction(txn);
+    return { ok: true };
+  } catch (err) {
+    await payload.db.rollbackTransaction(txn);
+    return { ok: false, error: (err as Error).message };
+  }
+}
+
+export async function acceptAction(submissionId: number): Promise<ActionResult> {
+  const payload = await getPayloadClient();
+  const sub = await payload.findByID({ collection: 'submissions', id: submissionId, depth: 0 });
+  if (!sub) return { ok: false, error: 'Submission not found' };
+
+  const txn = await payload.db.beginTransaction();
+  try {
+    let articleId: number;
+    if (sub.type === 'new_article') {
+      const apply = applySubmissionToArticle(sub as never, null);
+      const created = await payload.create({
+        collection: 'articles',
+        req: { transactionID: txn } as never,
+        context: { skipMarkdownSync: true },
+        data: {
+          ...apply.patch,
+          authors: [],
+          lastReviewedAt: new Date().toISOString(),
+        } as never,
+      });
+      articleId = (created as { id: number }).id;
+    } else {
+      const related = (sub as { relatedArticle?: number }).relatedArticle;
+      if (!related) return { ok: false, error: 'Correction missing relatedArticle' };
+      const article = await payload.findByID({ collection: 'articles', id: related, depth: 0 });
+      const apply = applySubmissionToArticle(sub as never, article as never);
+      await payload.update({
+        collection: 'articles',
+        id: related,
+        req: { transactionID: txn } as never,
+        context: { skipMarkdownSync: true },
+        data: { ...apply.patch, lastReviewedAt: new Date().toISOString() } as never,
+      });
+      articleId = related;
+    }
+
+    const octokit = getOctokit();
+    const { owner, repo } = repoCfg();
+    const prNumber = (sub as { prNumber?: number | null }).prNumber;
+    const prBranch = (sub as { prBranch?: string | null }).prBranch;
+    if (prNumber && prBranch) {
+      await mergeSubmissionPR(octokit, { owner, repo, prNumber, branch: prBranch });
+    }
+
+    await payload.update({
+      collection: 'submissions',
+      id: submissionId,
+      req: { transactionID: txn } as never,
+      data: { reviewStatus: 'accepted', prState: 'merged' },
+    });
+
+    await payload.db.commitTransaction(txn);
+
+    const email = (sub as { submitterEmail?: string }).submitterEmail;
+    if (email) {
+      await payload.sendEmail({
+        to: email,
+        subject: 'Dein Beitrag zu PflegeAtlas wurde übernommen',
+        text:
+          `Hallo,\n\n` +
+          `dein Vorschlag wurde von der Redaktion geprüft und übernommen. ` +
+          `Vielen Dank für deinen Beitrag!\n\n` +
+          `Du findest den Artikel jetzt online auf pflegeatlas.org.\n\n` +
+          `Liebe Grüße,\ndas PflegeAtlas-Team`,
+      });
+    }
+    void articleId;
+    return { ok: true };
+  } catch (err) {
+    await payload.db.rollbackTransaction(txn);
+    return { ok: false, error: (err as Error).message };
+  }
+}
+
+export async function rejectAction(submissionId: number): Promise<ActionResult> {
+  const payload = await getPayloadClient();
+  const sub = await payload.findByID({ collection: 'submissions', id: submissionId, depth: 0 });
+  if (!sub) return { ok: false, error: 'Submission not found' };
+
+  const txn = await payload.db.beginTransaction();
+  try {
+    const prNumber = (sub as { prNumber?: number | null }).prNumber;
+    const prBranch = (sub as { prBranch?: string | null }).prBranch;
+    if (prNumber && prBranch) {
+      const octokit = getOctokit();
+      const { owner, repo } = repoCfg();
+      await closeSubmissionPR(octokit, { owner, repo, prNumber, branch: prBranch });
+    }
+
+    await payload.update({
+      collection: 'submissions',
+      id: submissionId,
+      req: { transactionID: txn } as never,
+      data: { reviewStatus: 'rejected', prState: prNumber ? 'closed' : null },
+    });
+
+    await payload.db.commitTransaction(txn);
+    return { ok: true };
+  } catch (err) {
+    await payload.db.rollbackTransaction(txn);
+    return { ok: false, error: (err as Error).message };
+  }
+}
