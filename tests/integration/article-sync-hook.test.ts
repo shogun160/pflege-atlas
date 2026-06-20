@@ -81,4 +81,78 @@ describe('Articles.afterChange (markdown sync)', () => {
     expect(mocks.upsertArticleMarkdown).not.toHaveBeenCalled();
     expect(mocks.deleteArticleMarkdown).not.toHaveBeenCalled();
   });
+
+  it('deletes previous markdown when slug is renamed while published', async () => {
+    mocks.getOctokit.mockReturnValue({} as never);
+    mocks.deleteArticleMarkdown.mockResolvedValue({ committed: true });
+    mocks.upsertArticleMarkdown.mockResolvedValue({ committed: true });
+    const { afterArticleChangeHook } = await import('@/collections/Articles');
+    await afterArticleChangeHook({
+      operation: 'update',
+      doc: {
+        id: 1,
+        slug: 'neuer-slug',
+        title: 'Neuer Titel',
+        intent: 'background',
+        summary: 's',
+        status: 'published',
+        definition: { root: { type: 'root', children: [] } },
+        praxis: { root: { type: 'root', children: [] } },
+        risiken: { root: { type: 'root', children: [] } },
+        quellen: { root: { type: 'root', children: [] } },
+      },
+      previousDoc: { status: 'published', slug: 'alter-slug' } as never,
+      req: { context: {}, payload: { find: vi.fn().mockResolvedValue({ docs: [] }) } } as never,
+    });
+    expect(mocks.deleteArticleMarkdown).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ slug: 'alter-slug' }),
+    );
+    expect(mocks.upsertArticleMarkdown).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ slug: 'neuer-slug' }),
+    );
+  });
+
+  it('does not delete previous markdown when slug is unchanged', async () => {
+    mocks.getOctokit.mockReturnValue({} as never);
+    mocks.upsertArticleMarkdown.mockResolvedValue({ committed: true });
+    const { afterArticleChangeHook } = await import('@/collections/Articles');
+    await afterArticleChangeHook({
+      operation: 'update',
+      doc: {
+        id: 1,
+        slug: 'demo',
+        title: 'Demo',
+        intent: 'background',
+        summary: 's',
+        status: 'published',
+        definition: { root: { type: 'root', children: [] } },
+        praxis: { root: { type: 'root', children: [] } },
+        risiken: { root: { type: 'root', children: [] } },
+        quellen: { root: { type: 'root', children: [] } },
+      },
+      previousDoc: { status: 'published', slug: 'demo' } as never,
+      req: { context: {}, payload: { find: vi.fn().mockResolvedValue({ docs: [] }) } } as never,
+    });
+    expect(mocks.deleteArticleMarkdown).not.toHaveBeenCalled();
+    expect(mocks.upsertArticleMarkdown).toHaveBeenCalled();
+  });
+
+  it('deletes previous slug (not current) when unpublishing with rename', async () => {
+    mocks.getOctokit.mockReturnValue({} as never);
+    mocks.deleteArticleMarkdown.mockResolvedValue({ committed: true });
+    const { afterArticleChangeHook } = await import('@/collections/Articles');
+    await afterArticleChangeHook({
+      operation: 'update',
+      doc: { id: 1, slug: 'neuer-slug', status: 'draft' } as never,
+      previousDoc: { status: 'published', slug: 'alter-slug' } as never,
+      req: { context: {}, payload: { find: vi.fn() } } as never,
+    });
+    expect(mocks.deleteArticleMarkdown).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ slug: 'alter-slug' }),
+    );
+    expect(mocks.upsertArticleMarkdown).not.toHaveBeenCalled();
+  });
 });
