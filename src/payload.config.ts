@@ -10,6 +10,9 @@ import { Articles } from './collections/Articles'
 import { Submissions } from './collections/Submissions'
 import { Media } from './collections/Media'
 import { buildEmailConfig } from './lib/email-config'
+import { assertGithubConfigInProduction } from './lib/env'
+
+assertGithubConfigInProduction()
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
