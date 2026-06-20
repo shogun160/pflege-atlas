@@ -5,6 +5,16 @@ import { getGithubConfig } from '@/lib/env';
 import { upsertArticleMarkdown, deleteArticleMarkdown } from '@/lib/github-article-sync';
 import { renderArticleMarkdown } from '@/lib/article-markdown';
 
+/**
+ * Eventually-consistent GitHub sync.
+ *
+ * Octokit failures are caught and logged but do NOT roll back the Payload
+ * DB save. Reason: Payload's afterChange hooks are isolated from the
+ * outer transaction. The next save attempt will retry the sync.
+ *
+ * For atomic GitHub+DB writes use the T12 server actions instead
+ * (in src/app/(payload)/admin/submission-actions.ts).
+ */
 export async function afterArticleChangeHook(args: {
   operation: 'create' | 'update' | string;
   doc: Record<string, unknown>;
@@ -28,13 +38,27 @@ export async function afterArticleChangeHook(args: {
   const octokit = getOctokit();
 
   if (!isPublished && wasPublished && doc.slug) {
-    await deleteArticleMarkdown(octokit, { owner, repo, slug: doc.slug });
+    try {
+      await deleteArticleMarkdown(octokit, { owner, repo, slug: doc.slug });
+    } catch (err) {
+      console.error(
+        `[V1.5] Failed to delete article markdown for ${doc.slug}:`,
+        err instanceof Error ? err.message : err,
+      );
+    }
     return;
   }
 
   if (isPublished && doc.slug) {
-    const markdown = renderArticleMarkdown(doc as never, []);
-    await upsertArticleMarkdown(octokit, { owner, repo, slug: doc.slug, markdown });
+    try {
+      const markdown = renderArticleMarkdown(doc as never, []);
+      await upsertArticleMarkdown(octokit, { owner, repo, slug: doc.slug, markdown });
+    } catch (err) {
+      console.error(
+        `[V1.5] Failed to sync article markdown for ${doc.slug}:`,
+        err instanceof Error ? err.message : err,
+      );
+    }
   }
 }
 

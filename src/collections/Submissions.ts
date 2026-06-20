@@ -13,6 +13,16 @@ const conditionNewArticle = (data: Record<string, unknown> | undefined) =>
 const conditionCorrection = (data: Record<string, unknown> | undefined) =>
   data?.type === 'correction';
 
+/**
+ * Eventually-consistent GitHub sync.
+ *
+ * Octokit failures are caught and logged but do NOT roll back the Payload
+ * DB save. Reason: Payload's afterChange hooks are isolated from the
+ * outer transaction. The next save attempt will retry the sync.
+ *
+ * For atomic GitHub+DB writes use the T12 server actions instead
+ * (in src/app/(payload)/admin/submission-actions.ts).
+ */
 export async function afterSubmissionChangeHook(args: {
   operation: 'create' | 'update' | string;
   doc: Record<string, unknown>;
@@ -56,15 +66,24 @@ export async function afterSubmissionChangeHook(args: {
       ? `content/articles/${(args.previousDoc as { proposedSlug?: string }).proposedSlug}.md`
       : undefined;
 
-  await pushSubmissionEdit(octokit, {
-    owner,
-    repo,
-    branch: doc.prBranch,
-    path: newPath,
-    oldPath,
-    markdown,
-    message: `submission(${doc.id}): editorial revision`,
-  });
+  try {
+    await pushSubmissionEdit(octokit, {
+      owner,
+      repo,
+      branch: doc.prBranch,
+      path: newPath,
+      oldPath,
+      markdown,
+      message: `submission(${doc.id}): editorial revision`,
+    });
+  } catch (err) {
+    // Hook errors don't roll back the DB save (Payload isolates them).
+    // The next submission edit will retry the sync.
+    console.error(
+      `[V1.5] Failed to re-push submission ${doc.id} to GitHub:`,
+      err instanceof Error ? err.message : err,
+    );
+  }
 }
 
 export const Submissions: CollectionConfig = {
