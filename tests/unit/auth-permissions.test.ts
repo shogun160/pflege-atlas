@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { hasPermission, PERMISSIONS, type Role } from '@/lib/auth-permissions';
+import { hasPermission, hasRolePermission, PERMISSIONS, type Role } from '@/lib/auth-permissions';
 
 describe('auth-permissions matrix', () => {
   it('admin can do everything on every collection', () => {
@@ -45,5 +45,19 @@ describe('auth-permissions matrix', () => {
 
   it('PERMISSIONS object contains all 4 roles', () => {
     expect(Object.keys(PERMISSIONS)).toEqual(['admin', 'editor', 'reviewer', 'contributor']);
+  });
+
+  it('hasRolePermission returns same as hasPermission for non-disabled users and ignores id', () => {
+    // Matches positive case
+    expect(hasRolePermission('editor', 'publish', 'articles')).toBe(
+      hasPermission({ id: 42, role: 'editor', disabled: false }, 'publish', 'articles'),
+    );
+    // Matches negative case
+    expect(hasRolePermission('reviewer', 'publish', 'articles')).toBe(
+      hasPermission({ id: 99, role: 'reviewer', disabled: false }, 'publish', 'articles'),
+    );
+    // id is irrelevant — same role yields same result regardless of id
+    expect(hasRolePermission('contributor', 'createSubmission', 'submissions')).toBe(true);
+    expect(hasRolePermission('contributor', 'readAllSubmissions', 'submissions')).toBe(false);
   });
 });

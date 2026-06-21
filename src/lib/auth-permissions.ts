@@ -94,3 +94,16 @@ export function hasPermission(
   }
   return PERMISSIONS[user.role].has(action);
 }
+
+/**
+ * Role-only permission check. Use this when you have just a role
+ * (e.g. from req.user.role) and don't need user-instance specifics.
+ * Equivalent to `hasPermission({ id: 0, role, disabled: false }, action, resource)`
+ * but makes the intent explicit at the call-site.
+ */
+export function hasRolePermission(role: Role, action: Action, resource: Resource): boolean {
+  // resource is part of the signature for forward-compat (mirrors hasPermission)
+  // and to keep call-sites readable; current matrix is role/action-only.
+  void resource;
+  return PERMISSIONS[role].has(action);
+}

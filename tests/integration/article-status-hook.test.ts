@@ -107,4 +107,43 @@ describe('article status transitions', () => {
     const ids = reviewedBy.map((r) => typeof r === 'object' ? r.id : r);
     expect(ids).toContain(reviewer.id);
   });
+
+  it('claim: ready_to_publish → in_review does NOT re-claim (preserves original reviewer)', async () => {
+    const reviewerA = reviewer; // existing fixture
+    const reviewerB = await createUserFixture(payload, 'reviewer');
+    const article = await payload.create({
+      collection: 'articles',
+      data: {
+        title: `Test ${Date.now()}-noreclaim`,
+        slug: `test-${Date.now()}-noreclaim`,
+        intent: 'background',
+        summary: 'x',
+        definition: { root: { type: 'root', children: [{ type: 'paragraph', children: [{ type: 'text', text: 'd' }] }] } },
+        praxis: { root: { type: 'root', children: [{ type: 'paragraph', children: [{ type: 'text', text: 'p' }] }] } },
+        risiken: { root: { type: 'root', children: [{ type: 'paragraph', children: [{ type: 'text', text: 'r' }] }] } },
+        quellen: { root: { type: 'root', children: [{ type: 'paragraph', children: [{ type: 'text', text: 'q' }] }] } },
+        status: 'in_review',
+        currentReviewer: reviewerA.id,
+      } as never,
+    });
+    // Bounce: in_review → ready_to_publish (reviewerA can do this)
+    await payload.update({
+      collection: 'articles',
+      id: article.id,
+      data: { status: 'ready_to_publish' } as never,
+      overrideAccess: false,
+      user: reviewerA as never,
+    });
+    // Back to in_review by reviewerB
+    const updated = await payload.update({
+      collection: 'articles',
+      id: article.id,
+      data: { status: 'in_review' } as never,
+      overrideAccess: false,
+      user: reviewerB as never,
+    });
+    const reviewerRaw = (updated as { currentReviewer?: number | { id: number } }).currentReviewer;
+    const currentReviewerId = typeof reviewerRaw === 'object' && reviewerRaw ? reviewerRaw.id : reviewerRaw;
+    expect(currentReviewerId).toBe(reviewerA.id); // NOT reviewerB.id
+  });
 });

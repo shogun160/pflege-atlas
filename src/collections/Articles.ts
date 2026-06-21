@@ -4,7 +4,24 @@ import { getOctokit } from '@/lib/github-app';
 import { getGithubConfig } from '@/lib/env';
 import { upsertArticleMarkdown, deleteArticleMarkdown } from '@/lib/github-article-sync';
 import { renderArticleMarkdown } from '@/lib/article-markdown';
-import { hasPermission, type Role } from '@/lib/auth-permissions';
+import { hasRolePermission, type Action, type Role } from '@/lib/auth-permissions';
+
+type ArticleAuthUser = { role?: Role; disabled?: boolean; id?: number };
+
+/**
+ * Maps a target article status to the permission action required to transition
+ * into it. `null` means "no permission gate" (any user with updateContent
+ * access may move back to draft). `undefined` (lookup miss) is treated as an
+ * unknown status and rejected — this is the exhaustiveness guard for the
+ * status enum.
+ */
+const STATUS_REQUIRED_ACTION: Record<string, Action | null> = {
+  draft: null,
+  in_review: 'transitionToReview',
+  ready_to_publish: 'transitionToReadyToPublish',
+  published: 'publish',
+  archived: 'archive',
+};
 
 export function slugBeforeValidate(args: {
   data?: { title?: string };
@@ -109,7 +126,7 @@ export const Articles: CollectionConfig = {
         const prevStatus = prev?.status;
         const nextStatus = next.status;
         if (nextStatus && nextStatus !== prevStatus) {
-          const user = req.user as { role?: Role; disabled?: boolean; id?: number } | undefined;
+          const user = req.user as ArticleAuthUser | undefined;
           // System/internal calls (no req.user) bypass permission enforcement.
           // This mirrors Payload's access semantics: when overrideAccess is not
           // explicitly set to false, internal/scripted code runs unconstrained.
@@ -118,18 +135,13 @@ export const Articles: CollectionConfig = {
             throw new Error('Permission denied: no role for status transition.');
           }
           const role = user.role;
-          // Permission-Check je Übergang
-          if (nextStatus === 'in_review' && !hasPermission({ id: 0, role, disabled: false }, 'transitionToReview', 'articles')) {
-            throw new Error(`Permission denied: ${role} cannot transition to in_review.`);
+          // Permission-Check je Übergang (data-driven; exhaustiveness via map)
+          const requiredAction = STATUS_REQUIRED_ACTION[nextStatus];
+          if (requiredAction === undefined) {
+            throw new Error(`Unknown article status: ${nextStatus}`);
           }
-          if (nextStatus === 'ready_to_publish' && !hasPermission({ id: 0, role, disabled: false }, 'transitionToReadyToPublish', 'articles')) {
-            throw new Error(`Permission denied: ${role} cannot transition to ready_to_publish.`);
-          }
-          if (nextStatus === 'published' && !hasPermission({ id: 0, role, disabled: false }, 'publish', 'articles')) {
-            throw new Error(`Permission denied: ${role} cannot publish.`);
-          }
-          if (nextStatus === 'archived' && !hasPermission({ id: 0, role, disabled: false }, 'archive', 'articles')) {
-            throw new Error(`Permission denied: ${role} cannot archive.`);
+          if (requiredAction && !hasRolePermission(role, requiredAction, 'articles')) {
+            throw new Error(`Permission denied: ${role} cannot transition to ${nextStatus}.`);
           }
           // Claim-Mechanik
           if (nextStatus === 'in_review' && prevStatus !== 'in_review' && prevStatus !== 'ready_to_publish') {
@@ -162,31 +174,30 @@ export const Articles: CollectionConfig = {
   access: {
     read: ({ req: { user } }) => {
       if (!user) return { status: { equals: 'published' } };
-      const role = (user as { role?: Role; disabled?: boolean }).role;
-      const disabled = (user as { disabled?: boolean }).disabled;
-      if (disabled) return { status: { equals: 'published' } };
-      if (role && hasPermission({ id: 0, role, disabled: false }, 'readAllStati', 'articles')) {
+      const u = user as ArticleAuthUser;
+      if (u.disabled) return { status: { equals: 'published' } };
+      if (u.role && hasRolePermission(u.role, 'readAllStati', 'articles')) {
         return true;
       }
       return { status: { equals: 'published' } };
     },
     create: ({ req: { user } }) => {
       if (!user) return false;
-      const u = user as { role?: Role; disabled?: boolean };
+      const u = user as ArticleAuthUser;
       if (u.disabled || !u.role) return false;
-      return hasPermission({ id: 0, role: u.role, disabled: false }, 'createArticle', 'articles');
+      return hasRolePermission(u.role, 'createArticle', 'articles');
     },
     update: ({ req: { user } }) => {
       if (!user) return false;
-      const u = user as { role?: Role; disabled?: boolean };
+      const u = user as ArticleAuthUser;
       if (u.disabled || !u.role) return false;
-      return hasPermission({ id: 0, role: u.role, disabled: false }, 'updateContent', 'articles');
+      return hasRolePermission(u.role, 'updateContent', 'articles');
     },
     delete: ({ req: { user } }) => {
       if (!user) return false;
-      const u = user as { role?: Role; disabled?: boolean };
+      const u = user as ArticleAuthUser;
       if (u.disabled || !u.role) return false;
-      return hasPermission({ id: 0, role: u.role, disabled: false }, 'delete', 'articles');
+      return hasRolePermission(u.role, 'delete', 'articles');
     },
   },
   fields: [
