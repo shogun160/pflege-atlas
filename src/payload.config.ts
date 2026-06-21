@@ -20,6 +20,11 @@ const dirname = path.dirname(filename)
 export default buildConfig({
   admin: {
     user: Users.slug,
+    // B3: Force Payload's built-in default avatar in the admin shell.
+    // Without this, Payload reads our `Users.avatar` field (a media-relationship)
+    // and tries to render it as the Admin-Header-Avatar Component, which
+    // crashes with "Cannot read properties of undefined (reading 'stack')".
+    avatar: 'default',
     importMap: {
       baseDir: path.resolve(dirname),
     },

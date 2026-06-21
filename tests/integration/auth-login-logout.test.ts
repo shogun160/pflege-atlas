@@ -70,13 +70,22 @@ describe('logoutAction', () => {
     vi.resetModules();
   });
 
-  it('deletes payload-token cookie', async () => {
+  it('deletes payload-token cookie and redirects to /', async () => {
     const cookieDelete = vi.fn();
     vi.doMock('next/headers', () => ({
       cookies: async () => ({ delete: cookieDelete, set: vi.fn(), get: () => undefined }),
     }));
     const { logoutAction } = await import('@/lib/auth');
-    await logoutAction();
+    const { isRedirectError } = await import('next/dist/client/components/redirect-error');
+    // Post-B6: logoutAction throws a Next.js redirect control-flow.
+    let thrown: unknown;
+    try {
+      await logoutAction();
+    } catch (err) {
+      thrown = err;
+    }
+    expect(thrown).toBeTruthy();
+    expect(isRedirectError(thrown)).toBe(true);
     expect(cookieDelete).toHaveBeenCalledWith('payload-token');
     vi.doUnmock('next/headers');
   });

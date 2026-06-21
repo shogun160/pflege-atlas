@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import 'dotenv/config';
 import { getPayload } from 'payload';
 import config from '@/payload.config';
@@ -8,12 +8,32 @@ import { createUserFixture, type UserFixture } from '../helpers/user-fixtures';
 let payload: Awaited<ReturnType<typeof getPayload>>;
 let editor: UserFixture;
 let reviewer: UserFixture;
+let prevNodeEnv: string | undefined;
 
 beforeAll(async () => {
   vi.resetModules();
+  // B8: Articles.ts gates the ready-to-publish broadcast behind NODE_ENV=production
+  // (otherwise dev/test would mail ~150 fixture-users on every test run).
+  // Override here so the broadcast logic actually executes.
+  prevNodeEnv = process.env.NODE_ENV;
+  Object.defineProperty(process.env, 'NODE_ENV', {
+    value: 'production',
+    configurable: true,
+    writable: true,
+    enumerable: true,
+  });
   payload = await getPayload({ config });
   editor = await createUserFixture(payload, 'editor');
   reviewer = await createUserFixture(payload, 'reviewer');
+});
+
+afterAll(() => {
+  Object.defineProperty(process.env, 'NODE_ENV', {
+    value: prevNodeEnv ?? 'test',
+    configurable: true,
+    writable: true,
+    enumerable: true,
+  });
 });
 
 function makeLexical(text: string) {

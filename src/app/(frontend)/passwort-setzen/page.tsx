@@ -20,8 +20,19 @@ async function lookupToken(token: string): Promise<LookupResult> {
       .setPasswordTokenExpiresAt;
     return { valid: isTokenValid(expiresAt), mode: 'invitation' };
   }
-  // Otherwise assume Payload-native reset token; Payload validates on POST.
-  return { valid: true, mode: 'reset' };
+  // Try Payload-native reset token. If present, hand off to the SetPasswordForm
+  // which posts to setPasswordFromTokenAction → Payload validates expiry/usage.
+  const reset = await payload.find({
+    collection: 'users',
+    where: { resetPasswordToken: { equals: token } },
+    depth: 0,
+    limit: 1,
+  });
+  if (reset.docs.length > 0) {
+    return { valid: true, mode: 'reset' };
+  }
+  // Neither token matches → already used or never existed.
+  return null;
 }
 
 export default async function PasswortSetzenPage({
@@ -34,14 +45,19 @@ export default async function PasswortSetzenPage({
   const lookup = await lookupToken(token);
 
   if (!token || !lookup) {
+    // Clean, friendly error-state (e.g. when a magic link was already used).
+    // Wraps the same outer container the success path uses.
     return (
       <main className="mx-auto max-w-md p-8">
-        <h1 className="mb-4 font-serif text-3xl">Ungültiger Link</h1>
-        <p>Dieser Link ist ungültig oder bereits eingelöst.</p>
-        <p className="mt-4">
-          <a href="/mitmachen" className="text-brand underline">
-            Neuen Link anfordern
-          </a>
+        <h1 className="mb-4 font-serif text-3xl">Link nicht mehr gültig</h1>
+        <p>
+          Dieser Link ist nicht mehr gültig. Falls du dein Passwort vergessen
+          hast, fordere{' '}
+          <a href="/passwort-vergessen" className="text-brand underline">
+            hier einen neuen Reset
+          </a>{' '}
+          an. Falls du eine Einladung verwenden wolltest, wende dich an die
+          Person, die dich eingeladen hat.
         </p>
       </main>
     );

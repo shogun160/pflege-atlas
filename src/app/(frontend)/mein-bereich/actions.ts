@@ -1,6 +1,7 @@
 'use server';
 
 import { redirect } from 'next/navigation';
+import { revalidatePath } from 'next/cache';
 import {
   updateOwnProfileAction,
   deleteOwnAccountAction,
@@ -25,6 +26,9 @@ export async function saveProfileFormAction(
   };
   const result = await updateOwnProfileAction(patch);
   if (!result.ok) return { error: result.error };
+  // B10: revalidate so the page re-renders with the new profile values
+  // without requiring a manual reload.
+  revalidatePath('/mein-bereich');
   return { saved: true };
 }
 
@@ -39,7 +43,10 @@ export async function deleteAccountFormAction(
   const confirmation = String(formData.get('confirmation') ?? '');
   const result = await deleteOwnAccountAction(confirmation);
   if (!result.ok) return { error: result.error };
+  // logoutAction itself throws the redirect post-B6 — no need to redirect twice.
   await logoutAction();
+  // Unreachable, kept as a safety net in case logoutAction's redirect ever
+  // changes shape.
   redirect('/');
 }
 

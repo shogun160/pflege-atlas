@@ -1,6 +1,7 @@
 import { getPayload } from 'payload';
+import { redirect } from 'next/navigation';
 import config from '@/payload.config';
-import { requireUser, logoutAction } from '@/lib/auth';
+import { getSession, logoutAction } from '@/lib/auth';
 import { ProfileEditForm } from '@/components/ProfileEditForm';
 import { AccountActions } from '@/components/AccountActions';
 import { MeineBeitraegeCard } from '@/components/MeineBeitraegeCard';
@@ -11,7 +12,10 @@ export const metadata = {
 };
 
 export default async function MeinBereichPage() {
-  const session = await requireUser();
+  // B9: getSession() + redirect avoids the 500 that requireUser would
+  // produce when no session is present.
+  const session = await getSession();
+  if (!session) redirect('/login?next=/mein-bereich');
   const payload = await getPayload({ config });
   const submissionsFind =
     session.role === 'contributor'

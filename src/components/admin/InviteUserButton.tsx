@@ -68,7 +68,10 @@ export function InviteUserButton({ sessionRole }: { sessionRole: Role }) {
           }}
         >
           <div style={{ marginBottom: 8 }}>
-            <label htmlFor="invite-email" style={{ display: 'block', fontSize: 12 }}>
+            <label
+              htmlFor="invite-email"
+              style={{ display: 'block', fontSize: 12, color: '#333', fontWeight: 500 }}
+            >
               E-Mail
             </label>
             <input
@@ -80,7 +83,10 @@ export function InviteUserButton({ sessionRole }: { sessionRole: Role }) {
             />
           </div>
           <div style={{ marginBottom: 8 }}>
-            <label htmlFor="invite-displayName" style={{ display: 'block', fontSize: 12 }}>
+            <label
+              htmlFor="invite-displayName"
+              style={{ display: 'block', fontSize: 12, color: '#333', fontWeight: 500 }}
+            >
               Anzeigename
             </label>
             <input
@@ -92,7 +98,10 @@ export function InviteUserButton({ sessionRole }: { sessionRole: Role }) {
             />
           </div>
           <div style={{ marginBottom: 12 }}>
-            <label htmlFor="invite-role" style={{ display: 'block', fontSize: 12 }}>
+            <label
+              htmlFor="invite-role"
+              style={{ display: 'block', fontSize: 12, color: '#333', fontWeight: 500 }}
+            >
               Rolle
             </label>
             <select

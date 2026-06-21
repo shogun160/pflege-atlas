@@ -181,14 +181,24 @@ export const Articles: CollectionConfig = {
             typeof reviewerRaw === 'object' && reviewerRaw
               ? reviewerRaw.displayName ?? 'Reviewer:in'
               : 'Reviewer:in';
+          // B8: Dev/local DBs accumulate ~150 test-fixture users (@test.local,
+          // @example.com) which all got the ready-to-publish notification and
+          // spammed the Resend sandbox. Pragmatic gate: in prod, notify all
+          // editors+admins; in dev/test, notify only Oliver's admin account.
+          // The dedicated integration-test sets NODE_ENV=production to keep
+          // the full-broadcast assertion intact.
+          const isProd = process.env.NODE_ENV === 'production';
+          const where: Record<string, unknown> = isProd
+            ? {
+                and: [
+                  { role: { in: ['editor', 'admin'] } },
+                  { disabled: { equals: false } },
+                ],
+              }
+            : { email: { equals: 'oliver.wosnitza@gmail.com' } };
           const editors = await req.payload.find({
             collection: 'users',
-            where: {
-              and: [
-                { role: { in: ['editor', 'admin'] } },
-                { disabled: { equals: false } },
-              ],
-            },
+            where: where as never,
             limit: 100,
             depth: 0,
           });

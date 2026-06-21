@@ -1,3 +1,5 @@
+import { getPayload } from 'payload';
+import config from '@/payload.config';
 import { getSession } from '@/lib/auth';
 import { ClaimButton } from './ClaimButton';
 
@@ -40,11 +42,29 @@ export async function ClaimButtonField({
 
   const reviewerRaw = data.currentReviewer ?? null;
   const reviewerId =
-    typeof reviewerRaw === 'object' && reviewerRaw ? reviewerRaw.id : reviewerRaw;
-  const reviewerName =
     typeof reviewerRaw === 'object' && reviewerRaw
-      ? reviewerRaw.displayName ?? null
-      : null;
+      ? reviewerRaw.id
+      : (reviewerRaw as number | null);
+  // Payload may pass the relationship as either a populated object OR a raw ID
+  // depending on `depth` in the surrounding admin-view request. When we get
+  // just an ID, lookup the user so the ClaimButton can display the real name
+  // instead of falling back to "unbekannt".
+  let reviewerName: string | null = null;
+  if (typeof reviewerRaw === 'object' && reviewerRaw) {
+    reviewerName = reviewerRaw.displayName ?? null;
+  } else if (typeof reviewerRaw === 'number') {
+    try {
+      const payload = await getPayload({ config });
+      const user = await payload.findByID({
+        collection: 'users',
+        id: reviewerRaw,
+        depth: 0,
+      });
+      reviewerName = (user as { displayName?: string }).displayName ?? null;
+    } catch {
+      reviewerName = null;
+    }
+  }
   const type: 'article' | 'submission' =
     collectionSlug === 'articles' ? 'article' : 'submission';
 

@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { getPayload } from 'payload';
 import config from '@/payload.config';
 import { hasPermission, type Action, type Resource, type Role } from './auth-permissions';
@@ -135,9 +136,12 @@ export async function loginAction(email: string, password: string): Promise<Logi
   }
 }
 
-export async function logoutAction(): Promise<void> {
+export async function logoutAction(): Promise<never> {
   'use server';
   await clearAuthCookie();
+  // Throws Next.js redirect control-flow; callers must not catch it.
+  // Type is `Promise<never>` because the function never returns normally.
+  redirect('/');
 }
 
 export interface InviteResult {
