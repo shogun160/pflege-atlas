@@ -24,3 +24,10 @@ vi.mock('@/lib/github-pr', () => ({
   mergePR: vi.fn(async () => undefined),
   closePR: vi.fn(async () => undefined),
 }));
+
+// T7: Mail-Wrapper Mock. Verhindert echte Mail-Sends im Test. Einzelne
+// Tests können `vi.mocked(sendMail).mockClear()` und Assertions auf die
+// Aufrufe machen.
+vi.mock('@/lib/mail', () => ({
+  sendMail: vi.fn(async () => undefined),
+}));

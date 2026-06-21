@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, vi } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 import 'dotenv/config';
 import { getPayload } from 'payload';
 import config from '@/payload.config';
@@ -11,6 +11,10 @@ beforeAll(async () => {
 });
 
 describe('auth.getSession', () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
   it('returns user data when valid token is in cookies', async () => {
     const editor = await createUserFixture(payload, 'editor');
     const { token } = await payload.login({
@@ -18,7 +22,6 @@ describe('auth.getSession', () => {
       data: { email: editor.email, password: editor.password },
     });
 
-    vi.resetModules();
     vi.doMock('next/headers', () => ({
       cookies: async () => ({
         get: (name: string) => name === 'payload-token' ? { value: token } : undefined,
@@ -35,7 +38,6 @@ describe('auth.getSession', () => {
   });
 
   it('returns null when no token cookie is set', async () => {
-    vi.resetModules();
     vi.doMock('next/headers', () => ({
       cookies: async () => ({ get: () => undefined }),
     }));
