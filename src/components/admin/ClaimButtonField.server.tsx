@@ -19,11 +19,24 @@ export async function ClaimButtonField({
   data?: {
     id?: number;
     currentReviewer?: number | { id: number; displayName?: string } | null;
+    status?: string;
+    reviewStatus?: string;
   };
   collectionSlug?: string;
 }) {
   const session = await getSession();
   if (!session || !data?.id) return null;
+
+  // Status-gate: only show the claim button when the document is in an
+  // editorial-pipeline status. Otherwise clicking would silently transition
+  // e.g. `draft` -> `in_review` (Articles) without explicit intent.
+  // Articles use `status`; Submissions use `reviewStatus`.
+  const status = collectionSlug === 'articles' ? data.status : data.reviewStatus;
+  const claimable =
+    status === 'pending' ||
+    status === 'in_review' ||
+    status === 'ready_to_publish';
+  if (!claimable) return null;
 
   const reviewerRaw = data.currentReviewer ?? null;
   const reviewerId =

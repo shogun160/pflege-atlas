@@ -12,6 +12,9 @@ export async function claimSubmissionAction(
   try {
     const session = await requireUser();
     const payload = await getPayload({ config });
+    // Note: no overrideAccess+user here — submissions have no per-status
+    // permission gate; requireUser() above already gates access. Article-side
+    // claim sets these to invoke the beforeChange transitionToReview check.
     await payload.update({
       collection: 'submissions',
       id,

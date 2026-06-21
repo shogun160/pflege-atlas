@@ -10,6 +10,11 @@ beforeAll(async () => {
   payload = await getPayload({ config });
 });
 
+// NOTE: This test races payload.update() directly to verify the underlying
+// beforeChange-hook attribution wins last. The T16 server-actions
+// (claimArticleAction/claimSubmissionAction) set currentReviewer explicitly
+// in `data`, so their race is a slightly different mechanism (data-wins
+// instead of hook-wins). The semantic outcome (last-write-wins) is the same.
 describe('claim mechanics — last-write-wins', () => {
   it('two simultaneous claims on the same article: last write wins', async () => {
     const r1 = await createUserFixture(payload, 'reviewer');

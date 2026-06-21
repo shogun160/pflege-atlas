@@ -9,6 +9,10 @@ vi.mock('@/app/(payload)/admin/claim-actions', () => ({
   claimSubmissionAction: vi.fn(async () => ({ ok: true })),
 }));
 
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }),
+}));
+
 import { ClaimButton } from '@/components/admin/ClaimButton';
 
 describe('ClaimButton', () => {

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   claimArticleAction,
   claimSubmissionAction,
@@ -19,7 +20,9 @@ export function ClaimButton({
   currentReviewerName: string | null;
   sessionUserId: number;
 }) {
-  const [busy, setBusy] = useState(false);
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [message, setMessage] = useState<string | null>(null);
 
   if (currentReviewerId === sessionUserId) {
     return (
@@ -35,32 +38,37 @@ export function ClaimButton({
     );
   }
 
-  async function claim() {
-    setBusy(true);
-    const fn = type === 'article' ? claimArticleAction : claimSubmissionAction;
-    const result = await fn(id);
-    setBusy(false);
-    if (result.ok) {
-      window.location.reload();
-    } else {
-      alert(result.error ?? 'Übernahme fehlgeschlagen.');
-    }
+  function claim() {
+    setMessage(null);
+    startTransition(async () => {
+      const fn = type === 'article' ? claimArticleAction : claimSubmissionAction;
+      const result = await fn(id);
+      if (result.ok) {
+        setMessage(null);
+        router.refresh();
+      } else {
+        setMessage(`Fehler: ${result.error ?? 'unbekannt'}`);
+      }
+    });
   }
 
   return (
-    <button
-      onClick={claim}
-      disabled={busy}
-      style={{
-        padding: '6px 12px',
-        background: '#1f5e6d',
-        color: '#fff',
-        borderRadius: 4,
-        border: 'none',
-        cursor: 'pointer',
-      }}
-    >
-      {busy ? 'Übernehme…' : 'Übernehmen'}
-    </button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <button
+        onClick={claim}
+        disabled={pending}
+        style={{
+          padding: '6px 12px',
+          background: '#1f5e6d',
+          color: '#fff',
+          borderRadius: 4,
+          border: 'none',
+          cursor: 'pointer',
+        }}
+      >
+        {pending ? 'Übernehme…' : 'Übernehmen'}
+      </button>
+      {message && <p style={{ margin: 0, fontSize: 12 }}>{message}</p>}
+    </div>
   );
 }
