@@ -26,6 +26,14 @@ vi.mock('next/navigation', () => ({
   redirect: mockRedirect,
 }));
 
+// /einreichen calls getSession() so the Submissions beforeChange hook can
+// auto-fill submittedBy when a logged-in user submits. In this unit test we
+// don't have a request scope (Next's cookies() would throw), so stub the
+// session to null — the anonymous-submission path is what this suite covers.
+vi.mock('@/lib/auth', () => ({
+  getSession: vi.fn(async () => null),
+}));
+
 import { submitAction } from '@/app/(frontend)/einreichen/actions';
 
 const lexicalSample = JSON.stringify({
