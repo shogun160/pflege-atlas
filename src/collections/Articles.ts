@@ -169,6 +169,47 @@ export const Articles: CollectionConfig = {
       async (args) => {
         await afterArticleChangeHook(args as never);
       },
+      async ({ doc, previousDoc, req }) => {
+        const prev = (previousDoc as { status?: string })?.status;
+        const next = (doc as { status?: string })?.status;
+        if (prev === 'ready_to_publish' || next !== 'ready_to_publish') return;
+        try {
+          const reviewerRaw = (doc as {
+            currentReviewer?: number | { id: number; displayName?: string } | null;
+          }).currentReviewer;
+          const reviewerName =
+            typeof reviewerRaw === 'object' && reviewerRaw
+              ? reviewerRaw.displayName ?? 'Reviewer:in'
+              : 'Reviewer:in';
+          const editors = await req.payload.find({
+            collection: 'users',
+            where: {
+              and: [
+                { role: { in: ['editor', 'admin'] } },
+                { disabled: { equals: false } },
+              ],
+            },
+            limit: 100,
+            depth: 0,
+          });
+          const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+          const adminLink = `${baseUrl}/admin/collections/articles/${(doc as { id: number }).id}`;
+          const title = (doc as { title?: string }).title ?? 'Unbenannter Artikel';
+          const { renderReadyToPublishMail } = await import('@/lib/mail-templates/ready-to-publish');
+          const { sendMail } = await import('@/lib/mail');
+          for (const editor of editors.docs as Array<{ email: string }>) {
+            const mail = renderReadyToPublishMail({
+              to: editor.email,
+              articleTitle: title,
+              reviewer: reviewerName,
+              adminLink,
+            });
+            await sendMail({ to: editor.email, ...mail });
+          }
+        } catch (err) {
+          console.error('[V1.6] ready-to-publish notification failed:', err);
+        }
+      },
     ],
   },
   access: {

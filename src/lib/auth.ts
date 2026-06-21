@@ -5,6 +5,7 @@ import { hasPermission, type Action, type Resource, type Role } from './auth-per
 import { generateToken, INVITE_EXPIRY_MS, isTokenValid } from './auth-tokens';
 import { sendMail } from './mail';
 import { renderInvitationMail } from './mail-templates/invitation';
+import { renderWelcomeMail } from './mail-templates/welcome';
 import { anonymizeUserPatch } from './user-soft-delete';
 import { shapeExport } from './data-export';
 
@@ -228,7 +229,7 @@ export async function setPasswordFromTokenAction(
       return { ok: false, error: 'Token ungültig.' };
     }
     const user = found.docs[0] as {
-      id: number; email: string; role?: Role;
+      id: number; email: string; role?: Role; displayName?: string;
       setPasswordTokenExpiresAt?: string | null;
     };
     if (!isTokenValid(user.setPasswordTokenExpiresAt)) {
@@ -243,6 +244,18 @@ export async function setPasswordFromTokenAction(
         setPasswordTokenExpiresAt: null,
       } as never,
     });
+    // Send welcome mail. Failure must NOT block the user from logging in —
+    // they just set their password, the account works either way.
+    try {
+      const welcome = renderWelcomeMail({
+        to: user.email,
+        displayName: user.displayName ?? '',
+        role: (user.role ?? 'contributor') as Role,
+      });
+      await sendMail({ to: user.email, ...welcome });
+    } catch (err) {
+      console.warn('[V1.6] welcome mail failed:', err);
+    }
     const loginResult = await payload.login({
       collection: 'users',
       data: { email: user.email, password: newPassword },

@@ -1,4 +1,5 @@
 import type { CollectionConfig } from 'payload';
+import { renderForgotPasswordMail } from '@/lib/mail-templates/forgot-password';
 
 export const Users: CollectionConfig = {
   slug: 'users',
@@ -7,6 +8,16 @@ export const Users: CollectionConfig = {
     maxLoginAttempts: 5,
     lockTime: 600 * 1000,             // 10min
     verify: false,                    // V1.6: Magic-Set-Password statt Verify-Email
+    forgotPassword: {
+      generateEmailHTML: (args) => {
+        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+        const token = (args as { token: string }).token;
+        const email = (args as { user: { email: string } }).user.email;
+        const resetLink = `${baseUrl}/passwort-setzen?token=${encodeURIComponent(token)}`;
+        return renderForgotPasswordMail({ to: email, resetLink }).html;
+      },
+      generateEmailSubject: () => 'Passwort-Reset für deinen PflegeAtlas-Account',
+    },
   },
   admin: {
     useAsTitle: 'email',
