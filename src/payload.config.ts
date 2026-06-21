@@ -49,6 +49,9 @@ export default buildConfig({
     pool: {
       connectionString: process.env.DATABASE_URI || '',
     },
+    // Migrations sind Source-of-Truth — kein interaktiver Dev-Schema-Push.
+    // Verhindert Vercel-Build-Hänger bei Code-vs-DB-Schema-Drift (z.B. `media.uploaded_by_id` FK-Naming).
+    push: false,
   }),
   sharp,
   email: buildEmailConfig(),
