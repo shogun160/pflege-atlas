@@ -4,6 +4,9 @@ import { getGithubConfig } from '@/lib/env';
 import { pushSubmissionEdit } from '@/lib/github-pr';
 import { applySubmissionToArticle } from '@/lib/submission-to-article';
 import { renderArticleMarkdown } from '@/lib/article-markdown';
+import { hasRolePermission, type Role } from '@/lib/auth-permissions';
+
+type SubmissionAuthUser = { role?: Role; disabled?: boolean; id?: number };
 
 const SECTIONS = ['definition', 'praxis', 'risiken', 'quellen'] as const;
 
@@ -96,10 +99,31 @@ export const Submissions: CollectionConfig = {
     defaultColumns: ['displayTitle', 'type', 'reviewStatus', 'createdAt'],
   },
   access: {
-    read: ({ req: { user } }) => Boolean(user),
-    create: () => true,
-    update: ({ req: { user } }) => Boolean(user),
-    delete: ({ req: { user } }) => user?.role === 'editor',
+    read: ({ req: { user } }) => {
+      if (!user) return false;
+      const u = user as SubmissionAuthUser;
+      if (u.disabled || !u.role) return false;
+      if (hasRolePermission(u.role, 'readAllSubmissions', 'submissions')) {
+        return true;
+      }
+      if (hasRolePermission(u.role, 'readOwnSubmissions', 'submissions')) {
+        return { submittedBy: { equals: u.id } };
+      }
+      return false;
+    },
+    create: () => true, // anonymous + authenticated; submittedBy auto-fill via hook
+    update: ({ req: { user } }) => {
+      if (!user) return false;
+      const u = user as SubmissionAuthUser;
+      if (u.disabled || !u.role) return false;
+      return hasRolePermission(u.role, 'updateSubmission', 'submissions');
+    },
+    delete: ({ req: { user } }) => {
+      if (!user) return false;
+      const u = user as SubmissionAuthUser;
+      if (u.disabled || !u.role) return false;
+      return hasRolePermission(u.role, 'delete', 'submissions');
+    },
   },
   hooks: {
     afterChange: [
@@ -108,8 +132,50 @@ export const Submissions: CollectionConfig = {
       },
     ],
     beforeChange: [
-      async ({ data, req }) => {
+      async ({ data, req, originalDoc, operation }) => {
         if (!data) return data;
+
+        // Auto-attribution at create-time
+        if (operation === 'create' && req.user && !data.submittedBy) {
+          data.submittedBy = (req.user as { id?: number }).id;
+        }
+
+        // Claim mechanic on reviewStatus transitions
+        if (operation === 'update') {
+          const prev = originalDoc as
+            | {
+                reviewStatus?: string;
+                currentReviewer?: number | { id: number } | null;
+                reviewedBy?: Array<number | { id: number }>;
+              }
+            | undefined;
+          const nextStatus = data.reviewStatus as string | undefined;
+          const prevStatus = prev?.reviewStatus;
+          if (nextStatus && nextStatus !== prevStatus) {
+            const user = req.user as { id?: number } | undefined;
+            if (nextStatus === 'in_review' && user?.id) {
+              data.currentReviewer = user.id;
+            }
+            if (prevStatus === 'in_review' && nextStatus !== 'in_review') {
+              const prevReviewerRaw = prev?.currentReviewer ?? null;
+              const prevReviewerId =
+                typeof prevReviewerRaw === 'object' && prevReviewerRaw
+                  ? prevReviewerRaw.id
+                  : prevReviewerRaw;
+              if (prevReviewerId) {
+                const existing = (prev?.reviewedBy ?? []).map((r) =>
+                  typeof r === 'object' ? r.id : r,
+                );
+                if (!existing.includes(prevReviewerId as number)) {
+                  data.reviewedBy = [...existing, prevReviewerId];
+                }
+              }
+              data.currentReviewer = null;
+            }
+          }
+        }
+
+        // displayTitle (existing logic, preserved)
         if (data.type === 'new_article') {
           data.displayTitle = data.proposedTitle ?? 'Neuer Artikel-Vorschlag';
           return data;
@@ -258,6 +324,41 @@ export const Submissions: CollectionConfig = {
         condition: conditionNewArticle,
         description: 'Wird beim "In Review nehmen" automatisch befüllt, kann hier angepasst werden.',
       },
+    },
+    {
+      name: 'submittedBy',
+      type: 'relationship',
+      relationTo: 'users',
+      label: 'Eingereicht von',
+      hasMany: false,
+      admin: { readOnly: true, position: 'sidebar' },
+    },
+    {
+      name: 'currentReviewer',
+      type: 'relationship',
+      relationTo: 'users',
+      label: 'Aktuell in Review bei',
+      hasMany: false,
+      admin: { readOnly: true, position: 'sidebar' },
+    },
+    {
+      name: 'claimButton',
+      type: 'ui',
+      admin: {
+        position: 'sidebar',
+        components: {
+          Field:
+            'src/components/admin/ClaimButtonField.server.tsx#ClaimButtonField',
+        },
+      },
+    },
+    {
+      name: 'reviewedBy',
+      type: 'relationship',
+      relationTo: 'users',
+      label: 'Reviewt durch (Audit)',
+      hasMany: true,
+      admin: { readOnly: true, position: 'sidebar' },
     },
     {
       name: 'prNumber',

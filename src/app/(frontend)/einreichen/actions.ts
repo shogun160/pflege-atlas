@@ -8,6 +8,7 @@ import { getPayloadClient } from '@/lib/payload';
 import { sanitizeLexicalRoot } from '@/lib/lexical-sanitize';
 import { isLexicalDirty } from '@/lib/lexical-normalize';
 import { unwrapLexicalRoot } from '@/lib/lexical-unwrap';
+import { getSession } from '@/lib/auth';
 
 export type SubmitState = {
   fieldErrors?: Record<string, string>;
@@ -173,6 +174,11 @@ export async function submitAction(
   if (parsed.data.submitterEmail) sanitizedData.submitterEmail = parsed.data.submitterEmail;
   sanitizedData.reviewStatus = 'pending';
 
+  // Pass the current session (if any) so the Submissions `beforeChange` hook
+  // can auto-fill `submittedBy = req.user.id`. Anonymous submitters keep the
+  // V1.4 behavior: `user === undefined` → hook leaves `submittedBy` unset.
+  const session = await getSession();
+
   let submission;
   try {
     submission = await payload.create({
@@ -181,6 +187,7 @@ export async function submitAction(
       // expects a precise Submission shape we don't easily satisfy here.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       data: sanitizedData as any,
+      user: session ? ({ id: session.id, role: session.role } as never) : undefined,
     });
   } catch (err) {
     console.error('Submission create failed', err);

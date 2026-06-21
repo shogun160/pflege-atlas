@@ -128,8 +128,41 @@ export interface UserAuthOperations {
 export interface User {
   id: number;
   displayName: string;
-  role: 'editor' | 'reviewer' | 'contributor';
+  role: 'admin' | 'editor' | 'reviewer' | 'contributor';
+  /**
+   * Wenn aktiv, ist Login blockiert. Datensatz bleibt für Audit + Relationships.
+   */
+  disabled?: boolean | null;
   bio?: string | null;
+  pflegerischeRolle?: ('pflegefachkraft' | 'pdl' | 'wbl' | 'auszubildende' | 'sonstiges') | null;
+  bundesland?:
+    | (
+        | 'baden_wuerttemberg'
+        | 'bayern'
+        | 'berlin'
+        | 'brandenburg'
+        | 'bremen'
+        | 'hamburg'
+        | 'hessen'
+        | 'mecklenburg_vorpommern'
+        | 'niedersachsen'
+        | 'nordrhein_westfalen'
+        | 'rheinland_pfalz'
+        | 'saarland'
+        | 'sachsen'
+        | 'sachsen_anhalt'
+        | 'schleswig_holstein'
+        | 'thueringen'
+        | 'oesterreich'
+        | 'schweiz'
+        | 'sonstiges'
+      )
+    | null;
+  avatar?: (number | null) | Media;
+  setPasswordToken?: string | null;
+  setPasswordTokenExpiresAt?: string | null;
+  invitedBy?: (number | null) | User;
+  invitedAt?: string | null;
   updatedAt: string;
   createdAt: string;
   email: string;
@@ -148,6 +181,27 @@ export interface User {
     | null;
   password?: string | null;
   collection: 'users';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "media".
+ */
+export interface Media {
+  id: number;
+  alt: string;
+  purpose: 'avatar' | 'article_image' | 'other';
+  uploadedBy?: (number | null) | User;
+  updatedAt: string;
+  createdAt: string;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  focalX?: number | null;
+  focalY?: number | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -223,13 +277,17 @@ export interface Article {
     [k: string]: unknown;
   };
   authors?: (number | User)[] | null;
+  /**
+   * Wird beim Statuswechsel automatisch gesetzt.
+   */
+  currentReviewer?: (number | null) | User;
   reviewedBy?: (number | User)[] | null;
   lastReviewedAt?: string | null;
   standardsBound?: boolean | null;
   /**
    * Steuert die öffentliche Sichtbarkeit. Nur "Veröffentlicht" ist für Leser:innen sichtbar — kein zweiter Toggle nötig.
    */
-  status?: ('draft' | 'in_review' | 'published' | 'archived') | null;
+  status?: ('draft' | 'in_review' | 'ready_to_publish' | 'published' | 'archived') | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -375,6 +433,9 @@ export interface Submission {
    * Wird beim "In Review nehmen" automatisch befüllt, kann hier angepasst werden.
    */
   proposedSlug?: string | null;
+  submittedBy?: (number | null) | User;
+  currentReviewer?: (number | null) | User;
+  reviewedBy?: (number | User)[] | null;
   prNumber?: number | null;
   prBranch?: string | null;
   prState?: ('open' | 'merged' | 'closed') | null;
@@ -382,25 +443,6 @@ export interface Submission {
   reviewerNotes?: string | null;
   updatedAt: string;
   createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "media".
- */
-export interface Media {
-  id: number;
-  alt: string;
-  updatedAt: string;
-  createdAt: string;
-  url?: string | null;
-  thumbnailURL?: string | null;
-  filename?: string | null;
-  mimeType?: string | null;
-  filesize?: number | null;
-  width?: number | null;
-  height?: number | null;
-  focalX?: number | null;
-  focalY?: number | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -491,7 +533,15 @@ export interface PayloadMigration {
 export interface UsersSelect<T extends boolean = true> {
   displayName?: T;
   role?: T;
+  disabled?: T;
   bio?: T;
+  pflegerischeRolle?: T;
+  bundesland?: T;
+  avatar?: T;
+  setPasswordToken?: T;
+  setPasswordTokenExpiresAt?: T;
+  invitedBy?: T;
+  invitedAt?: T;
   updatedAt?: T;
   createdAt?: T;
   email?: T;
@@ -523,6 +573,7 @@ export interface ArticlesSelect<T extends boolean = true> {
   risiken?: T;
   quellen?: T;
   authors?: T;
+  currentReviewer?: T;
   reviewedBy?: T;
   lastReviewedAt?: T;
   standardsBound?: T;
@@ -553,6 +604,9 @@ export interface SubmissionsSelect<T extends boolean = true> {
   submitterName?: T;
   submitterEmail?: T;
   proposedSlug?: T;
+  submittedBy?: T;
+  currentReviewer?: T;
+  reviewedBy?: T;
   prNumber?: T;
   prBranch?: T;
   prState?: T;
@@ -567,6 +621,8 @@ export interface SubmissionsSelect<T extends boolean = true> {
  */
 export interface MediaSelect<T extends boolean = true> {
   alt?: T;
+  purpose?: T;
+  uploadedBy?: T;
   updatedAt?: T;
   createdAt?: T;
   url?: T;

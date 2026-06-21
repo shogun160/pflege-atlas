@@ -36,7 +36,12 @@ const NewArticleSchema = z.object({
     .trim()
     .min(3, 'Bitte mindestens 3 Zeichen.')
     .max(200, 'Maximal 200 Zeichen.'),
-  proposedIntent: z.enum(['bedside', 'background', 'learning']).optional(),
+  // Coerce the empty default option (`<option value="">— offen, …</option>`)
+  // to `undefined` so Zod's enum check doesn't reject "no intent picked".
+  proposedIntent: z.preprocess(
+    (val) => (val === '' ? undefined : val),
+    z.enum(['bedside', 'background', 'learning']).optional(),
+  ),
   proposedSummary: z
     .string()
     .trim()

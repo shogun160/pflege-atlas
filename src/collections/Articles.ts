@@ -4,6 +4,24 @@ import { getOctokit } from '@/lib/github-app';
 import { getGithubConfig } from '@/lib/env';
 import { upsertArticleMarkdown, deleteArticleMarkdown } from '@/lib/github-article-sync';
 import { renderArticleMarkdown } from '@/lib/article-markdown';
+import { hasRolePermission, type Action, type Role } from '@/lib/auth-permissions';
+
+type ArticleAuthUser = { role?: Role; disabled?: boolean; id?: number };
+
+/**
+ * Maps a target article status to the permission action required to transition
+ * into it. `null` means "no permission gate" (any user with updateContent
+ * access may move back to draft). `undefined` (lookup miss) is treated as an
+ * unknown status and rejected — this is the exhaustiveness guard for the
+ * status enum.
+ */
+const STATUS_REQUIRED_ACTION: Record<string, Action | null> = {
+  draft: null,
+  in_review: 'transitionToReview',
+  ready_to_publish: 'transitionToReadyToPublish',
+  published: 'publish',
+  archived: 'archive',
+};
 
 export function slugBeforeValidate(args: {
   data?: { title?: string };
@@ -100,18 +118,137 @@ export const Articles: CollectionConfig = {
   // hat im Smoke-Test wiederholt zur UX-Falle geführt (Bug 3, Track F
   // 2026-06-20). Audit-Trail kommt über V1.5-GitHub-Sync.
   hooks: {
+    beforeChange: [
+      async ({ data, originalDoc, req, operation }) => {
+        if (operation !== 'update' || !data) return data;
+        const prev = originalDoc as { status?: string; currentReviewer?: number | { id: number } | null; reviewedBy?: Array<number | { id: number }> } | undefined;
+        const next = data as { status?: string; currentReviewer?: number | null; reviewedBy?: Array<number> };
+        const prevStatus = prev?.status;
+        const nextStatus = next.status;
+        if (nextStatus && nextStatus !== prevStatus) {
+          const user = req.user as ArticleAuthUser | undefined;
+          // System/internal calls (no req.user) bypass permission enforcement.
+          // This mirrors Payload's access semantics: when overrideAccess is not
+          // explicitly set to false, internal/scripted code runs unconstrained.
+          if (!user) return data;
+          if (!user.role || user.disabled) {
+            throw new Error('Permission denied: no role for status transition.');
+          }
+          const role = user.role;
+          // Permission-Check je Übergang (data-driven; exhaustiveness via map)
+          const requiredAction = STATUS_REQUIRED_ACTION[nextStatus];
+          if (requiredAction === undefined) {
+            throw new Error(`Unknown article status: ${nextStatus}`);
+          }
+          if (requiredAction && !hasRolePermission(role, requiredAction, 'articles')) {
+            throw new Error(`Permission denied: ${role} cannot transition to ${nextStatus}.`);
+          }
+          // Claim-Mechanik
+          if (nextStatus === 'in_review' && prevStatus !== 'in_review' && prevStatus !== 'ready_to_publish') {
+            next.currentReviewer = user.id ?? null;
+          }
+          if ((prevStatus === 'in_review' || prevStatus === 'ready_to_publish')
+              && nextStatus !== 'in_review' && nextStatus !== 'ready_to_publish') {
+            const prevReviewerRaw = prev?.currentReviewer ?? null;
+            const prevReviewerId = typeof prevReviewerRaw === 'object' ? prevReviewerRaw?.id : prevReviewerRaw;
+            if (prevReviewerId) {
+              const existingReviewedBy = (prev?.reviewedBy ?? []).map((r) =>
+                typeof r === 'object' ? r.id : r
+              );
+              if (!existingReviewedBy.includes(prevReviewerId)) {
+                next.reviewedBy = [...existingReviewedBy, prevReviewerId];
+              }
+            }
+            next.currentReviewer = null;
+          }
+        }
+        return data;
+      },
+    ],
     afterChange: [
       async (args) => {
         await afterArticleChangeHook(args as never);
+      },
+      async ({ doc, previousDoc, req }) => {
+        const prev = (previousDoc as { status?: string })?.status;
+        const next = (doc as { status?: string })?.status;
+        if (prev === 'ready_to_publish' || next !== 'ready_to_publish') return;
+        try {
+          const reviewerRaw = (doc as {
+            currentReviewer?: number | { id: number; displayName?: string } | null;
+          }).currentReviewer;
+          const reviewerName =
+            typeof reviewerRaw === 'object' && reviewerRaw
+              ? reviewerRaw.displayName ?? 'Reviewer:in'
+              : 'Reviewer:in';
+          // B8: Dev/local DBs accumulate ~150 test-fixture users (@test.local,
+          // @example.com) which all got the ready-to-publish notification and
+          // spammed the Resend sandbox. Pragmatic gate: in prod, notify all
+          // editors+admins; in dev/test, notify only Oliver's admin account.
+          // The dedicated integration-test sets NODE_ENV=production to keep
+          // the full-broadcast assertion intact.
+          const isProd = process.env.NODE_ENV === 'production';
+          const where: Record<string, unknown> = isProd
+            ? {
+                and: [
+                  { role: { in: ['editor', 'admin'] } },
+                  { disabled: { equals: false } },
+                ],
+              }
+            : { email: { equals: 'oliver.wosnitza@gmail.com' } };
+          const editors = await req.payload.find({
+            collection: 'users',
+            where: where as never,
+            limit: 100,
+            depth: 0,
+          });
+          const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+          const adminLink = `${baseUrl}/admin/collections/articles/${(doc as { id: number }).id}`;
+          const title = (doc as { title?: string }).title ?? 'Unbenannter Artikel';
+          const { renderReadyToPublishMail } = await import('@/lib/mail-templates/ready-to-publish');
+          const { sendMail } = await import('@/lib/mail');
+          for (const editor of editors.docs as Array<{ email: string }>) {
+            const mail = renderReadyToPublishMail({
+              to: editor.email,
+              articleTitle: title,
+              reviewer: reviewerName,
+              adminLink,
+            });
+            await sendMail({ to: editor.email, ...mail });
+          }
+        } catch (err) {
+          console.error('[V1.6] ready-to-publish notification failed:', err);
+        }
       },
     ],
   },
   access: {
     read: ({ req: { user } }) => {
-      if (user) return true;
-      return {
-        status: { equals: 'published' },
-      };
+      if (!user) return { status: { equals: 'published' } };
+      const u = user as ArticleAuthUser;
+      if (u.disabled) return { status: { equals: 'published' } };
+      if (u.role && hasRolePermission(u.role, 'readAllStati', 'articles')) {
+        return true;
+      }
+      return { status: { equals: 'published' } };
+    },
+    create: ({ req: { user } }) => {
+      if (!user) return false;
+      const u = user as ArticleAuthUser;
+      if (u.disabled || !u.role) return false;
+      return hasRolePermission(u.role, 'createArticle', 'articles');
+    },
+    update: ({ req: { user } }) => {
+      if (!user) return false;
+      const u = user as ArticleAuthUser;
+      if (u.disabled || !u.role) return false;
+      return hasRolePermission(u.role, 'updateContent', 'articles');
+    },
+    delete: ({ req: { user } }) => {
+      if (!user) return false;
+      const u = user as ArticleAuthUser;
+      if (u.disabled || !u.role) return false;
+      return hasRolePermission(u.role, 'delete', 'articles');
     },
   },
   fields: [
@@ -191,6 +328,29 @@ export const Articles: CollectionConfig = {
       hasMany: true,
     },
     {
+      name: 'currentReviewer',
+      type: 'relationship',
+      label: 'Aktuell in Review bei',
+      relationTo: 'users',
+      hasMany: false,
+      admin: {
+        position: 'sidebar',
+        readOnly: true,
+        description: 'Wird beim Statuswechsel automatisch gesetzt.',
+      },
+    },
+    {
+      name: 'claimButton',
+      type: 'ui',
+      admin: {
+        position: 'sidebar',
+        components: {
+          Field:
+            'src/components/admin/ClaimButtonField.server.tsx#ClaimButtonField',
+        },
+      },
+    },
+    {
       name: 'reviewedBy',
       type: 'relationship',
       label: 'Geprüft von',
@@ -221,6 +381,7 @@ export const Articles: CollectionConfig = {
       options: [
         { label: 'Entwurf', value: 'draft' },
         { label: 'In Review', value: 'in_review' },
+        { label: 'Bereit zur Veröffentlichung', value: 'ready_to_publish' },
         { label: 'Veröffentlicht', value: 'published' },
         { label: 'Archiviert', value: 'archived' },
       ],
