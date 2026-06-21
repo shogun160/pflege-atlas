@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import type { Role } from '@/lib/auth-permissions';
 import { inviteUserFromAdminAction } from '@/app/(payload)/admin/invite-action';
 
@@ -20,23 +20,23 @@ const ROLES_FOR: Record<Role, Array<{ value: Role; label: string }>> = {
 };
 
 export function InviteUserButton({ sessionRole }: { sessionRole: Role }) {
+  const [pending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const options = ROLES_FOR[sessionRole];
   if (options.length === 0) return null;
 
-  async function submit(formData: FormData) {
-    setBusy(true);
-    setMessage(null);
-    const result = await inviteUserFromAdminAction(
-      String(formData.get('email') ?? ''),
-      formData.get('role') as Role,
-      String(formData.get('displayName') ?? ''),
-    );
-    setBusy(false);
-    setMessage(result.ok ? '✓ Einladung verschickt.' : `Fehler: ${result.error}`);
-    if (result.ok) setOpen(false);
+  function submit(formData: FormData) {
+    startTransition(async () => {
+      setMessage(null);
+      const result = await inviteUserFromAdminAction(
+        String(formData.get('email') ?? ''),
+        formData.get('role') as Role,
+        String(formData.get('displayName') ?? ''),
+      );
+      setMessage(result.ok ? '✓ Einladung verschickt.' : `Fehler: ${result.error}`);
+      if (result.ok) setOpen(false);
+    });
   }
 
   return (
@@ -111,17 +111,17 @@ export function InviteUserButton({ sessionRole }: { sessionRole: Role }) {
           </div>
           <button
             type="submit"
-            disabled={busy}
+            disabled={pending}
             style={{
               padding: '6px 12px',
               background: '#1f5e6d',
               color: '#fff',
               borderRadius: 4,
               border: 'none',
-              cursor: busy ? 'wait' : 'pointer',
+              cursor: pending ? 'wait' : 'pointer',
             }}
           >
-            {busy ? 'Lade…' : 'Einladen'}
+            {pending ? 'Lade…' : 'Einladung senden'}
           </button>
         </form>
       )}

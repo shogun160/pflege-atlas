@@ -153,6 +153,8 @@ function actionForInvite(targetRole: Role): Action {
   return 'inviteContributor';
 }
 
+const VALID_ROLES: readonly Role[] = ['admin', 'editor', 'reviewer', 'contributor'];
+
 export async function inviteUserAction(
   email: string,
   role: Role,
@@ -161,6 +163,13 @@ export async function inviteUserAction(
   'use server';
   try {
     const session = await requireUser();
+    // Guard against tampered POSTs: the action boundary must not trust the
+    // client-supplied role. Without this, an unknown role would fall through
+    // to `inviteContributor` permission gate but then ValidationError at the
+    // DB layer with a developer-string we'd leak to the user.
+    if (!VALID_ROLES.includes(role)) {
+      return { ok: false, error: 'Ungültige Rolle.' };
+    }
     const action = actionForInvite(role);
     if (!hasPermission(session, action, 'users')) {
       return { ok: false, error: `Keine Berechtigung: ${session.role} darf ${role} nicht einladen.` };
