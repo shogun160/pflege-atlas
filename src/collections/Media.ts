@@ -1,32 +1,34 @@
-import type { CollectionConfig } from 'payload';
+import type { Access, CollectionConfig, Where } from 'payload';
 import { hasRolePermission, type Role } from '@/lib/auth-permissions';
 
 type MediaAuthUser = { role?: Role; disabled?: boolean; id?: number };
 
+const readAccess: Access = ({ req: { user } }) => {
+  // article_image + other: public
+  // avatar: own or editor+
+  if (!user) {
+    return { purpose: { not_equals: 'avatar' } } as Where;
+  }
+  const u = user as MediaAuthUser;
+  if (u.disabled || !u.role) {
+    return { purpose: { not_equals: 'avatar' } } as Where;
+  }
+  if (hasRolePermission(u.role, 'readOthersAvatar', 'media')) {
+    return true;
+  }
+  // Contributor / reviewer: alle non-avatar + own avatars
+  return {
+    or: [
+      { purpose: { not_equals: 'avatar' } },
+      { and: [{ purpose: { equals: 'avatar' } }, { uploadedBy: { equals: u.id } }] },
+    ],
+  } as Where;
+};
+
 export const Media: CollectionConfig = {
   slug: 'media',
   access: {
-    read: ({ req: { user } }) => {
-      // article_image + other: public
-      // avatar: own or editor+
-      if (!user) {
-        return { purpose: { not_equals: 'avatar' } };
-      }
-      const u = user as MediaAuthUser;
-      if (u.disabled || !u.role) {
-        return { purpose: { not_equals: 'avatar' } };
-      }
-      if (hasRolePermission(u.role, 'readOthersAvatar', 'media')) {
-        return true;
-      }
-      // Contributor / reviewer: alle non-avatar + own avatars
-      return {
-        or: [
-          { purpose: { not_equals: 'avatar' } },
-          { and: [{ purpose: { equals: 'avatar' } }, { uploadedBy: { equals: u.id } }] },
-        ],
-      };
-    },
+    read: readAccess,
     create: ({ req: { user } }) => {
       if (!user) return false;
       const u = user as MediaAuthUser;
