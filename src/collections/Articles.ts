@@ -4,6 +4,7 @@ import { getOctokit } from '@/lib/github-app';
 import { getGithubConfig } from '@/lib/env';
 import { upsertArticleMarkdown, deleteArticleMarkdown } from '@/lib/github-article-sync';
 import { renderArticleMarkdown } from '@/lib/article-markdown';
+import { hasPermission, type Role } from '@/lib/auth-permissions';
 
 export function slugBeforeValidate(args: {
   data?: { title?: string };
@@ -100,6 +101,58 @@ export const Articles: CollectionConfig = {
   // hat im Smoke-Test wiederholt zur UX-Falle geführt (Bug 3, Track F
   // 2026-06-20). Audit-Trail kommt über V1.5-GitHub-Sync.
   hooks: {
+    beforeChange: [
+      async ({ data, originalDoc, req, operation }) => {
+        if (operation !== 'update' || !data) return data;
+        const prev = originalDoc as { status?: string; currentReviewer?: number | { id: number } | null; reviewedBy?: Array<number | { id: number }> } | undefined;
+        const next = data as { status?: string; currentReviewer?: number | null; reviewedBy?: Array<number> };
+        const prevStatus = prev?.status;
+        const nextStatus = next.status;
+        if (nextStatus && nextStatus !== prevStatus) {
+          const user = req.user as { role?: Role; disabled?: boolean; id?: number } | undefined;
+          // System/internal calls (no req.user) bypass permission enforcement.
+          // This mirrors Payload's access semantics: when overrideAccess is not
+          // explicitly set to false, internal/scripted code runs unconstrained.
+          if (!user) return data;
+          if (!user.role || user.disabled) {
+            throw new Error('Permission denied: no role for status transition.');
+          }
+          const role = user.role;
+          // Permission-Check je Übergang
+          if (nextStatus === 'in_review' && !hasPermission({ id: 0, role, disabled: false }, 'transitionToReview', 'articles')) {
+            throw new Error(`Permission denied: ${role} cannot transition to in_review.`);
+          }
+          if (nextStatus === 'ready_to_publish' && !hasPermission({ id: 0, role, disabled: false }, 'transitionToReadyToPublish', 'articles')) {
+            throw new Error(`Permission denied: ${role} cannot transition to ready_to_publish.`);
+          }
+          if (nextStatus === 'published' && !hasPermission({ id: 0, role, disabled: false }, 'publish', 'articles')) {
+            throw new Error(`Permission denied: ${role} cannot publish.`);
+          }
+          if (nextStatus === 'archived' && !hasPermission({ id: 0, role, disabled: false }, 'archive', 'articles')) {
+            throw new Error(`Permission denied: ${role} cannot archive.`);
+          }
+          // Claim-Mechanik
+          if (nextStatus === 'in_review' && prevStatus !== 'in_review' && prevStatus !== 'ready_to_publish') {
+            next.currentReviewer = user.id ?? null;
+          }
+          if ((prevStatus === 'in_review' || prevStatus === 'ready_to_publish')
+              && nextStatus !== 'in_review' && nextStatus !== 'ready_to_publish') {
+            const prevReviewerRaw = prev?.currentReviewer ?? null;
+            const prevReviewerId = typeof prevReviewerRaw === 'object' ? prevReviewerRaw?.id : prevReviewerRaw;
+            if (prevReviewerId) {
+              const existingReviewedBy = (prev?.reviewedBy ?? []).map((r) =>
+                typeof r === 'object' ? r.id : r
+              );
+              if (!existingReviewedBy.includes(prevReviewerId)) {
+                next.reviewedBy = [...existingReviewedBy, prevReviewerId];
+              }
+            }
+            next.currentReviewer = null;
+          }
+        }
+        return data;
+      },
+    ],
     afterChange: [
       async (args) => {
         await afterArticleChangeHook(args as never);
@@ -108,10 +161,32 @@ export const Articles: CollectionConfig = {
   },
   access: {
     read: ({ req: { user } }) => {
-      if (user) return true;
-      return {
-        status: { equals: 'published' },
-      };
+      if (!user) return { status: { equals: 'published' } };
+      const role = (user as { role?: Role; disabled?: boolean }).role;
+      const disabled = (user as { disabled?: boolean }).disabled;
+      if (disabled) return { status: { equals: 'published' } };
+      if (role && hasPermission({ id: 0, role, disabled: false }, 'readAllStati', 'articles')) {
+        return true;
+      }
+      return { status: { equals: 'published' } };
+    },
+    create: ({ req: { user } }) => {
+      if (!user) return false;
+      const u = user as { role?: Role; disabled?: boolean };
+      if (u.disabled || !u.role) return false;
+      return hasPermission({ id: 0, role: u.role, disabled: false }, 'createArticle', 'articles');
+    },
+    update: ({ req: { user } }) => {
+      if (!user) return false;
+      const u = user as { role?: Role; disabled?: boolean };
+      if (u.disabled || !u.role) return false;
+      return hasPermission({ id: 0, role: u.role, disabled: false }, 'updateContent', 'articles');
+    },
+    delete: ({ req: { user } }) => {
+      if (!user) return false;
+      const u = user as { role?: Role; disabled?: boolean };
+      if (u.disabled || !u.role) return false;
+      return hasPermission({ id: 0, role: u.role, disabled: false }, 'delete', 'articles');
     },
   },
   fields: [
@@ -191,6 +266,18 @@ export const Articles: CollectionConfig = {
       hasMany: true,
     },
     {
+      name: 'currentReviewer',
+      type: 'relationship',
+      label: 'Aktuell in Review bei',
+      relationTo: 'users',
+      hasMany: false,
+      admin: {
+        position: 'sidebar',
+        readOnly: true,
+        description: 'Wird beim Statuswechsel automatisch gesetzt.',
+      },
+    },
+    {
       name: 'reviewedBy',
       type: 'relationship',
       label: 'Geprüft von',
@@ -221,6 +308,7 @@ export const Articles: CollectionConfig = {
       options: [
         { label: 'Entwurf', value: 'draft' },
         { label: 'In Review', value: 'in_review' },
+        { label: 'Bereit zur Veröffentlichung', value: 'ready_to_publish' },
         { label: 'Veröffentlicht', value: 'published' },
         { label: 'Archiviert', value: 'archived' },
       ],
