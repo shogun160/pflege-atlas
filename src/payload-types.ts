@@ -128,8 +128,41 @@ export interface UserAuthOperations {
 export interface User {
   id: number;
   displayName: string;
-  role: 'editor' | 'reviewer' | 'contributor';
+  role: 'admin' | 'editor' | 'reviewer' | 'contributor';
+  /**
+   * Wenn aktiv, ist Login blockiert. Datensatz bleibt für Audit + Relationships.
+   */
+  disabled?: boolean | null;
   bio?: string | null;
+  pflegerischeRolle?: ('pflegefachkraft' | 'pdl' | 'wbl' | 'auszubildende' | 'sonstiges') | null;
+  bundesland?:
+    | (
+        | 'baden_wuerttemberg'
+        | 'bayern'
+        | 'berlin'
+        | 'brandenburg'
+        | 'bremen'
+        | 'hamburg'
+        | 'hessen'
+        | 'mecklenburg_vorpommern'
+        | 'niedersachsen'
+        | 'nordrhein_westfalen'
+        | 'rheinland_pfalz'
+        | 'saarland'
+        | 'sachsen'
+        | 'sachsen_anhalt'
+        | 'schleswig_holstein'
+        | 'thueringen'
+        | 'oesterreich'
+        | 'schweiz'
+        | 'sonstiges'
+      )
+    | null;
+  avatar?: (number | null) | Media;
+  setPasswordToken?: string | null;
+  setPasswordTokenExpiresAt?: string | null;
+  invitedBy?: (number | null) | User;
+  invitedAt?: string | null;
   updatedAt: string;
   createdAt: string;
   email: string;
@@ -148,6 +181,25 @@ export interface User {
     | null;
   password?: string | null;
   collection: 'users';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "media".
+ */
+export interface Media {
+  id: number;
+  alt: string;
+  updatedAt: string;
+  createdAt: string;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  focalX?: number | null;
+  focalY?: number | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -385,25 +437,6 @@ export interface Submission {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "media".
- */
-export interface Media {
-  id: number;
-  alt: string;
-  updatedAt: string;
-  createdAt: string;
-  url?: string | null;
-  thumbnailURL?: string | null;
-  filename?: string | null;
-  mimeType?: string | null;
-  filesize?: number | null;
-  width?: number | null;
-  height?: number | null;
-  focalX?: number | null;
-  focalY?: number | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -491,7 +524,15 @@ export interface PayloadMigration {
 export interface UsersSelect<T extends boolean = true> {
   displayName?: T;
   role?: T;
+  disabled?: T;
   bio?: T;
+  pflegerischeRolle?: T;
+  bundesland?: T;
+  avatar?: T;
+  setPasswordToken?: T;
+  setPasswordTokenExpiresAt?: T;
+  invitedBy?: T;
+  invitedAt?: T;
   updatedAt?: T;
   createdAt?: T;
   email?: T;
