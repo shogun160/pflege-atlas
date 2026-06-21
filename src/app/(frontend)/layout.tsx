@@ -5,6 +5,7 @@ import './styles.css'
 import { Footer } from '@/components/Footer'
 import { Logo } from '@/components/Logo'
 import { HeaderUserMenu } from '@/components/HeaderUserMenu'
+import { CloudflareAnalytics } from '@/components/CloudflareAnalytics'
 import { getSession } from '@/lib/auth'
 
 const plexSerif = IBM_Plex_Serif({
@@ -39,6 +40,7 @@ export default async function FrontendLayout({ children }: { children: React.Rea
         </header>
         <main className="flex-1">{children}</main>
         <Footer />
+        <CloudflareAnalytics />
       </body>
     </html>
   )
