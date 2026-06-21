@@ -85,7 +85,7 @@ export function EditorialDashboard({
           <ul style={{ listStyle: 'none', padding: 0 }}>
             {recentArticles.map((a) => (
               <li key={a.id} style={{ padding: 8, borderBottom: '1px solid #eee' }}>
-                <a href={`/admin/collections/articles/${a.id}`}>{a.title}</a>
+                <a href={`/admin/collections/articles/${a.id}`}>{a.title ?? 'Ohne Titel'}</a>
                 <span style={{ marginLeft: 8, fontSize: 12, color: '#666' }}>· {a.status}</span>
               </li>
             ))}
