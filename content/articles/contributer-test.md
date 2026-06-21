@@ -1,6 +1,6 @@
 ---
 payloadId: 0
-slug: null
+slug: contributer-test
 title: contributer test
 intent: bedside
 summary: contributer test
