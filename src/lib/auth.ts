@@ -5,6 +5,8 @@ import { hasPermission, type Action, type Resource, type Role } from './auth-per
 import { generateToken, INVITE_EXPIRY_MS, isTokenValid } from './auth-tokens';
 import { sendMail } from './mail';
 import { renderInvitationMail } from './mail-templates/invitation';
+import { anonymizeUserPatch } from './user-soft-delete';
+import { shapeExport } from './data-export';
 
 export interface Session {
   id: number;
@@ -248,5 +250,144 @@ export async function setPasswordFromTokenAction(
     return { ok: true, redirectTo: redirectForRole(role) };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : 'Set-Password failed.' };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Server-Actions (T8): forgotPassword, updateProfile, deleteOwn, exportOwn
+// ---------------------------------------------------------------------------
+
+// Simple in-memory rate-limit bucket per email (or per IP if available).
+// Anti-enumeration: even when rate-limited we still return ok=true so
+// attackers cannot probe for valid addresses by timing/error differences.
+const forgotPasswordBucket = new Map<string, number[]>();
+const FP_WINDOW_MS = 10 * 60 * 1000;
+const FP_MAX = 3;
+
+function rateLimitOk(key: string): boolean {
+  const now = Date.now();
+  const buf = (forgotPasswordBucket.get(key) ?? []).filter((t) => now - t < FP_WINDOW_MS);
+  if (buf.length >= FP_MAX) {
+    forgotPasswordBucket.set(key, buf);
+    return false;
+  }
+  buf.push(now);
+  forgotPasswordBucket.set(key, buf);
+  return true;
+}
+
+export async function requestPasswordResetAction(email: string): Promise<{ ok: true }> {
+  'use server';
+  // Always return ok (anti-enumeration), but check rate-limit silently
+  if (!rateLimitOk(email)) {
+    return { ok: true };
+  }
+  try {
+    const payload = await payloadInstance();
+    await payload.forgotPassword({
+      collection: 'users',
+      data: { email },
+      disableEmail: false,
+    });
+  } catch {
+    // Swallow — anti-enumeration
+  }
+  return { ok: true };
+}
+
+export interface OwnProfilePatch {
+  displayName?: string;
+  bio?: string | null;
+  pflegerischeRolle?: string | null;
+  bundesland?: string | null;
+  avatar?: number | null;
+}
+
+export async function updateOwnProfileAction(
+  data: OwnProfilePatch,
+): Promise<{ ok: boolean; error?: string }> {
+  'use server';
+  try {
+    const session = await requireUser();
+    // Strict whitelist — only the 5 named fields are forwarded to Payload.
+    // Any extra props (role, disabled, email, setPasswordToken, …) are
+    // silently dropped even if passed via cast.
+    const whitelisted: Record<string, unknown> = {};
+    if (data.displayName !== undefined) whitelisted.displayName = data.displayName;
+    if (data.bio !== undefined) whitelisted.bio = data.bio;
+    if (data.pflegerischeRolle !== undefined) whitelisted.pflegerischeRolle = data.pflegerischeRolle;
+    if (data.bundesland !== undefined) whitelisted.bundesland = data.bundesland;
+    if (data.avatar !== undefined) whitelisted.avatar = data.avatar;
+    if (Object.keys(whitelisted).length === 0) {
+      return { ok: true };
+    }
+    const payload = await payloadInstance();
+    await payload.update({
+      collection: 'users',
+      id: session.id,
+      data: whitelisted as never,
+    });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Update failed.' };
+  }
+}
+
+export async function deleteOwnAccountAction(
+  confirmation: string,
+): Promise<{ ok: boolean; error?: string }> {
+  'use server';
+  try {
+    if (confirmation !== 'LÖSCHEN') {
+      return { ok: false, error: 'Bestätigung fehlt oder falsch.' };
+    }
+    const session = await requireUser();
+    if (session.role === 'admin') {
+      return { ok: false, error: 'Admin-Accounts können sich nicht selbst löschen.' };
+    }
+    const payload = await payloadInstance();
+    const patch = anonymizeUserPatch();
+    await payload.update({
+      collection: 'users',
+      id: session.id,
+      data: patch as never,
+    });
+    const cookieStore = await cookies();
+    cookieStore.delete('payload-token');
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Delete failed.' };
+  }
+}
+
+export async function exportOwnDataAction(): Promise<{ ok: boolean; json?: string; error?: string }> {
+  'use server';
+  try {
+    const session = await requireUser();
+    const payload = await payloadInstance();
+    const user = await payload.findByID({ collection: 'users', id: session.id, depth: 0 });
+    const submissions = await payload.find({
+      collection: 'submissions',
+      where: { submittedBy: { equals: session.id } },
+      limit: 1000,
+      depth: 0,
+    });
+    // `authors` is a hasMany relationship — Payload's `equals` operator
+    // matches any document whose array contains the given ID, which is
+    // exactly what we want here.
+    const articles = await payload.find({
+      collection: 'articles',
+      where: { authors: { equals: session.id } },
+      limit: 1000,
+      depth: 0,
+    });
+    const shape = shapeExport({
+      user: user as never,
+      submissions: submissions.docs as never,
+      articles: articles.docs as never,
+    });
+    return { ok: true, json: JSON.stringify(shape, null, 2) };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Export failed.' };
   }
 }
