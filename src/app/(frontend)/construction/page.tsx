@@ -13,10 +13,11 @@ export default function ConstructionPage() {
     <article className="mx-auto max-w-3xl px-4 py-12">
       <Image
         src="/construction.png"
-        alt="Symbolische Baustellen-Illustration mit Kränen und Deutschland-Karte: PflegeAtlas im Aufbau"
+        alt="Symbolische Baustellen-Illustration mit Kränen, Mitmachen-Schildern und München-Skyline: PflegeAtlas im Aufbau"
         width={1024}
         height={585}
         priority
+        unoptimized
         className="mb-10 w-full rounded-lg"
       />
 
