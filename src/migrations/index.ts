@@ -2,6 +2,7 @@ import * as migration_20260605_140707_init from './20260605_140707_init';
 import * as migration_20260606_155824_v1_4_structured_submissions from './20260606_155824_v1_4_structured_submissions';
 import * as migration_20260620_165037_v1_5_submissions_pr_fields from './20260620_165037_v1_5_submissions_pr_fields';
 import * as migration_20260621_120000_drop_versions_and_status from './20260621_120000_drop_versions_and_status';
+import * as migration_20260621_140000_articles_status_enum_extend from './20260621_140000_articles_status_enum_extend';
 
 export const migrations = [
   {
@@ -23,5 +24,10 @@ export const migrations = [
     up: migration_20260621_120000_drop_versions_and_status.up,
     down: migration_20260621_120000_drop_versions_and_status.down,
     name: '20260621_120000_drop_versions_and_status'
+  },
+  {
+    up: migration_20260621_140000_articles_status_enum_extend.up,
+    down: migration_20260621_140000_articles_status_enum_extend.down,
+    name: '20260621_140000_articles_status_enum_extend'
   },
 ];
