@@ -1,4 +1,5 @@
 import React from 'react'
+import Link from 'next/link'
 import { IBM_Plex_Serif, IBM_Plex_Sans } from 'next/font/google'
 import './styles.css'
 import { Footer } from '@/components/Footer'
@@ -31,9 +32,9 @@ export default async function FrontendLayout({ children }: { children: React.Rea
     <html lang="de" className={`${plexSerif.variable} ${plexSans.variable}`}>
       <body className="min-h-screen flex flex-col bg-surface font-sans text-ink">
         <header className="mx-auto w-full max-w-6xl px-4 flex items-center justify-between gap-4">
-          <a href="/" className="inline-block">
+          <Link href="/" className="inline-block">
             <Logo priority />
-          </a>
+          </Link>
           <HeaderUserMenu session={session} />
         </header>
         <main className="flex-1">{children}</main>
