@@ -227,12 +227,11 @@ export interface Article {
   lastReviewedAt?: string | null;
   standardsBound?: boolean | null;
   /**
-   * Dieses Feld steuert die öffentliche Sichtbarkeit. Nur "Veröffentlicht" ist für Leser:innen sichtbar.
+   * Steuert die öffentliche Sichtbarkeit. Nur "Veröffentlicht" ist für Leser:innen sichtbar — kein zweiter Toggle nötig.
    */
   status?: ('draft' | 'in_review' | 'published' | 'archived') | null;
   updatedAt: string;
   createdAt: string;
-  _status?: ('draft' | 'published') | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -530,7 +529,6 @@ export interface ArticlesSelect<T extends boolean = true> {
   status?: T;
   updatedAt?: T;
   createdAt?: T;
-  _status?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
