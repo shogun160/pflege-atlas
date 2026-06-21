@@ -1,5 +1,6 @@
 import { postgresAdapter } from '@payloadcms/db-postgres'
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
+import { s3Storage } from '@payloadcms/storage-s3'
 import path from 'path'
 import { buildConfig } from 'payload'
 import { fileURLToPath } from 'url'
@@ -11,6 +12,7 @@ import { Submissions } from './collections/Submissions'
 import { Media } from './collections/Media'
 import { buildEmailConfig } from './lib/email-config'
 import { assertGithubConfigInProduction } from './lib/env'
+import { buildStorageConfig } from './lib/storage-config'
 
 assertGithubConfigInProduction()
 
@@ -50,5 +52,17 @@ export default buildConfig({
   }),
   sharp,
   email: buildEmailConfig(),
-  plugins: [],
+  plugins: (() => {
+    const storage = buildStorageConfig()
+    if (!storage) return []
+    return [
+      s3Storage({
+        collections: {
+          media: true,
+        },
+        bucket: storage.bucket,
+        config: storage.config,
+      }),
+    ]
+  })(),
 })
