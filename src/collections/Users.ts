@@ -22,6 +22,9 @@ export const Users: CollectionConfig = {
   admin: {
     useAsTitle: 'email',
     defaultColumns: ['email', 'displayName', 'role', 'disabled', 'invitedAt'],
+    components: {
+      beforeList: ['src/components/admin/InviteUserButton.server.tsx#InviteUserButtonServer'],
+    },
   },
   hooks: {
     beforeLogin: [
