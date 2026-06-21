@@ -7,7 +7,7 @@ export function DatenschutzSections() {
           Wir nutzen folgende Anbieter zur Verarbeitung personenbezogener Daten.
           Mit allen Anbietern bestehen Auftragsverarbeitungsverträge (AVV) bzw.
           Data Processing Agreements (DPA). Übermittlungen in die USA stützen
-          sich auf den EU-US Data Privacy Framework (DPF, angemessenheitsbeschluss
+          sich auf den EU-US Data Privacy Framework (DPF, Angemessenheitsbeschluss
           der EU-Kommission vom 10. Juli 2023) und Standardvertragsklauseln (SCC).
         </p>
         <ul>
