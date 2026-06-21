@@ -4,7 +4,7 @@ Offene, qualitätsgesicherte Wissensplattform für die professionelle Pflege.
 
 Schwerpunkt Langzeitpflege (stationär und ambulant). Inhalte sind frei nutzbar unter CC BY-SA 4.0; der Plattform-Code ist MIT.
 
-> **Status:** in aktiver Entwicklung. V1.1 ist live (Visual Identity + Frontend Polish). Submission-Formular, Auth-Workflow und Suche sind die nächsten Iterationen.
+> **Status:** in aktiver Entwicklung. V1.5 ist live (Visual Identity + Submission-PR-Sync). V1.6 (Editorial-Workflow + Auth) ist in Review auf `feat/v1-6-editorial-auth`. Suche bleibt die nächste Iteration.
 
 ## Stack
 
@@ -55,6 +55,15 @@ Anschließend:
 | `pnpm payload migrate` | Datenbank-Migrationen ausführen |
 | `pnpm payload migrate:status` | Status der Migrationen anzeigen |
 | `pnpm payload migrate:create <name>` | Neue Migration generieren (gegen aktuelles Schema-Diff) |
+
+## Auth & Accounts (V1.6)
+
+- Login: `/login` (replaces direct Payload-Admin-Login)
+- Forgot password: `/passwort-vergessen`
+- Set password (invitation or reset): `/passwort-setzen?token=...`
+- Contributor dashboard: `/mein-bereich`
+- Account is invitation-only — admins/editors invite via Payload-Admin (Users → „Neue:n User einladen").
+- Required env var (Production): `NEXT_PUBLIC_SITE_URL` (used in magic-link generation).
 
 ## Projektstruktur
 
