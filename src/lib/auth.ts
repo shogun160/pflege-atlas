@@ -34,6 +34,11 @@ async function setAuthCookie(token: string): Promise<void> {
   });
 }
 
+async function clearAuthCookie(): Promise<void> {
+  const cookieStore = await cookies();
+  cookieStore.delete('payload-token');
+}
+
 export async function getSession(): Promise<Session | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get('payload-token')?.value;
@@ -131,8 +136,7 @@ export async function loginAction(email: string, password: string): Promise<Logi
 
 export async function logoutAction(): Promise<void> {
   'use server';
-  const cookieStore = await cookies();
-  cookieStore.delete('payload-token');
+  await clearAuthCookie();
 }
 
 export interface InviteResult {
@@ -257,9 +261,15 @@ export async function setPasswordFromTokenAction(
 // Server-Actions (T8): forgotPassword, updateProfile, deleteOwn, exportOwn
 // ---------------------------------------------------------------------------
 
-// Simple in-memory rate-limit bucket per email (or per IP if available).
-// Anti-enumeration: even when rate-limited we still return ok=true so
-// attackers cannot probe for valid addresses by timing/error differences.
+// Per-email throttle for password-reset requests, to prevent spamming a
+// single victim's inbox. NOT a brute-force guard (anti-enumeration already
+// returns ok:true on every input, so attackers gain no signal).
+//
+// In-memory Map — works for single-instance deployment. If PflegeAtlas ever
+// scales to serverless or multi-pod, this becomes per-instance which is
+// effectively no throttle. Migrate to Redis or DB-backed counter then.
+//
+// Window 10min, max 3 attempts per email key.
 const forgotPasswordBucket = new Map<string, number[]>();
 const FP_WINDOW_MS = 10 * 60 * 1000;
 const FP_MAX = 3;
@@ -273,6 +283,15 @@ function rateLimitOk(key: string): boolean {
   }
   buf.push(now);
   forgotPasswordBucket.set(key, buf);
+  // Best-effort GC once the map grows beyond a sensible budget. Prevents
+  // unbounded growth from probing bots over long-running processes.
+  if (forgotPasswordBucket.size > 1000) {
+    for (const [k, v] of forgotPasswordBucket) {
+      const live = v.filter((t) => now - t < FP_WINDOW_MS);
+      if (live.length === 0) forgotPasswordBucket.delete(k);
+      else forgotPasswordBucket.set(k, live);
+    }
+  }
   return true;
 }
 
@@ -352,8 +371,7 @@ export async function deleteOwnAccountAction(
       id: session.id,
       data: patch as never,
     });
-    const cookieStore = await cookies();
-    cookieStore.delete('payload-token');
+    await clearAuthCookie();
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : 'Delete failed.' };

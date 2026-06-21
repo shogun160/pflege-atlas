@@ -20,10 +20,11 @@ describe('deleteOwnAccountAction', () => {
     const { token } = await payload.login({
       collection: 'users', data: { email: user.email, password: user.password },
     });
+    const cookieDelete = vi.fn();
     vi.doMock('next/headers', () => ({
       cookies: async () => ({
         get: (n: string) => n === 'payload-token' ? { value: token } : undefined,
-        set: vi.fn(), delete: vi.fn(),
+        set: vi.fn(), delete: cookieDelete,
       }),
     }));
     const { deleteOwnAccountAction } = await import('@/lib/auth');
@@ -32,6 +33,7 @@ describe('deleteOwnAccountAction', () => {
     const refetched = await payload.findByID({ collection: 'users', id: user.id });
     expect((refetched as { disabled: boolean }).disabled).toBe(true);
     expect((refetched as { email: string }).email).toMatch(/^deleted-/);
+    expect(cookieDelete).toHaveBeenCalledWith('payload-token');
     vi.doUnmock('next/headers');
   });
 
@@ -40,15 +42,17 @@ describe('deleteOwnAccountAction', () => {
     const { token } = await payload.login({
       collection: 'users', data: { email: admin.email, password: admin.password },
     });
+    const cookieDelete = vi.fn();
     vi.doMock('next/headers', () => ({
       cookies: async () => ({
         get: (n: string) => n === 'payload-token' ? { value: token } : undefined,
-        set: vi.fn(), delete: vi.fn(),
+        set: vi.fn(), delete: cookieDelete,
       }),
     }));
     const { deleteOwnAccountAction } = await import('@/lib/auth');
     const result = await deleteOwnAccountAction('LÖSCHEN');
     expect(result.ok).toBe(false);
+    expect(cookieDelete).not.toHaveBeenCalled();
     vi.doUnmock('next/headers');
   });
 
@@ -57,15 +61,17 @@ describe('deleteOwnAccountAction', () => {
     const { token } = await payload.login({
       collection: 'users', data: { email: user.email, password: user.password },
     });
+    const cookieDelete = vi.fn();
     vi.doMock('next/headers', () => ({
       cookies: async () => ({
         get: (n: string) => n === 'payload-token' ? { value: token } : undefined,
-        set: vi.fn(), delete: vi.fn(),
+        set: vi.fn(), delete: cookieDelete,
       }),
     }));
     const { deleteOwnAccountAction } = await import('@/lib/auth');
     const result = await deleteOwnAccountAction('wrong');
     expect(result.ok).toBe(false);
+    expect(cookieDelete).not.toHaveBeenCalled();
     vi.doUnmock('next/headers');
   });
 });
