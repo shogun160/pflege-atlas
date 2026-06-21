@@ -330,6 +330,17 @@ export const Articles: CollectionConfig = {
       },
     },
     {
+      name: 'claimButton',
+      type: 'ui',
+      admin: {
+        position: 'sidebar',
+        components: {
+          Field:
+            'src/components/admin/ClaimButtonField.server.tsx#ClaimButtonField',
+        },
+      },
+    },
+    {
       name: 'reviewedBy',
       type: 'relationship',
       label: 'Geprüft von',

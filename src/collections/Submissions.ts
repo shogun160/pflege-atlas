@@ -342,6 +342,17 @@ export const Submissions: CollectionConfig = {
       admin: { readOnly: true, position: 'sidebar' },
     },
     {
+      name: 'claimButton',
+      type: 'ui',
+      admin: {
+        position: 'sidebar',
+        components: {
+          Field:
+            'src/components/admin/ClaimButtonField.server.tsx#ClaimButtonField',
+        },
+      },
+    },
+    {
       name: 'reviewedBy',
       type: 'relationship',
       relationTo: 'users',
