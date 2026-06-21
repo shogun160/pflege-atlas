@@ -41,12 +41,16 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
           path varchar NOT NULL,
           users_id integer REFERENCES public.users(id) ON DELETE CASCADE
         );
+        CREATE INDEX submissions_rels_order_idx ON public.submissions_rels ("order");
         CREATE INDEX submissions_rels_parent_idx ON public.submissions_rels (parent_id);
         CREATE INDEX submissions_rels_path_idx ON public.submissions_rels (path);
         CREATE INDEX submissions_rels_users_id_idx ON public.submissions_rels (users_id);
       ELSE
         ALTER TABLE public.submissions_rels
           ADD COLUMN IF NOT EXISTS users_id integer REFERENCES public.users(id) ON DELETE CASCADE;
+        CREATE INDEX IF NOT EXISTS submissions_rels_order_idx ON public.submissions_rels ("order");
+        CREATE INDEX IF NOT EXISTS submissions_rels_parent_idx ON public.submissions_rels (parent_id);
+        CREATE INDEX IF NOT EXISTS submissions_rels_path_idx ON public.submissions_rels (path);
         CREATE INDEX IF NOT EXISTS submissions_rels_users_id_idx ON public.submissions_rels (users_id);
       END IF;
     END $$;
@@ -69,6 +73,9 @@ export async function down({ db }: MigrateDownArgs): Promise<void> {
       DROP COLUMN IF EXISTS purpose;
     DROP TYPE IF EXISTS public.enum_media_purpose;
 
+    DROP INDEX IF EXISTS public.submissions_rels_order_idx;
+    DROP INDEX IF EXISTS public.submissions_rels_path_idx;
+    DROP INDEX IF EXISTS public.submissions_rels_parent_idx;
     DROP INDEX IF EXISTS public.submissions_rels_users_id_idx;
     ALTER TABLE public.submissions_rels DROP COLUMN IF EXISTS users_id;
 
