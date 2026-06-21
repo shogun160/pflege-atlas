@@ -23,6 +23,14 @@ export default buildConfig({
     importMap: {
       baseDir: path.resolve(dirname),
     },
+    components: {
+      views: {
+        dashboard: {
+          Component:
+            'src/components/admin/EditorialDashboard.server.tsx#EditorialDashboardServer',
+        },
+      },
+    },
   },
   collections: [Users, Articles, Submissions, Media],
   editor: lexicalEditor(),
