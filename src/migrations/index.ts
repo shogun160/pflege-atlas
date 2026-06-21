@@ -6,6 +6,7 @@ import * as migration_20260621_140000_articles_status_enum_extend from './202606
 import * as migration_20260622_100000_users_role_articles_status_enums from './20260622_100000_users_role_articles_status_enums';
 import * as migration_20260622_100100_users_lifecycle_and_profile_fields from './20260622_100100_users_lifecycle_and_profile_fields';
 import * as migration_20260622_100200_submissions_articles_media_review_fields from './20260622_100200_submissions_articles_media_review_fields';
+import * as migration_20260622_100300_submissions_media_review_fields_repair from './20260622_100300_submissions_media_review_fields_repair';
 
 export const migrations = [
   {
@@ -47,5 +48,10 @@ export const migrations = [
     up: migration_20260622_100200_submissions_articles_media_review_fields.up,
     down: migration_20260622_100200_submissions_articles_media_review_fields.down,
     name: '20260622_100200_submissions_articles_media_review_fields',
+  },
+  {
+    up: migration_20260622_100300_submissions_media_review_fields_repair.up,
+    down: migration_20260622_100300_submissions_media_review_fields_repair.down,
+    name: '20260622_100300_submissions_media_review_fields_repair',
   },
 ];
