@@ -61,7 +61,7 @@ describe('inviteUserAction', () => {
     expect(okResult.ok).toBe(true);
     const blockedResult = await inviteUserAction(`adm-${Date.now()}@test.local`, 'admin', 'A');
     expect(blockedResult.ok).toBe(false);
-    expect(blockedResult.error).toMatch(/permission|forbidden|verboten/i);
+    expect(blockedResult.error).toMatch(/permission|forbidden|verboten|berechtigung/i);
     vi.doUnmock('next/headers');
   });
 

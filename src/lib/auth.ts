@@ -19,6 +19,19 @@ async function payloadInstance() {
   return await getPayload({ config });
 }
 
+// Single point of truth for the auth-cookie options. Security-relevant
+// (httpOnly/sameSite/secure/maxAge) — change one place, change all flows.
+async function setAuthCookie(token: string): Promise<void> {
+  const cookieStore = await cookies();
+  cookieStore.set('payload-token', token, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: 60 * 60 * 24,
+  });
+}
+
 export async function getSession(): Promise<Session | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get('payload-token')?.value;
@@ -100,19 +113,17 @@ export async function loginAction(email: string, password: string): Promise<Logi
     if (!result.token) {
       return { ok: false, error: 'Login fehlgeschlagen.' };
     }
-    const cookieStore = await cookies();
-    cookieStore.set('payload-token', result.token, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      path: '/',
-      maxAge: 60 * 60 * 24,
-    });
+    await setAuthCookie(result.token);
     const role = (result.user as { role?: Role }).role ?? 'contributor';
     return { ok: true, redirectTo: redirectForRole(role) };
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Login fehlgeschlagen.';
-    return { ok: false, error: message };
+    // Generic message — don't leak whether the email exists, the password
+    // is wrong, or the account is disabled/locked (Payload's underlying
+    // error messages distinguish these; we don't want to forward them).
+    if (process.env.NODE_ENV !== 'test') {
+      console.warn('[auth.loginAction] login rejected', err);
+    }
+    return { ok: false, error: 'Login fehlgeschlagen.' };
   }
 }
 
@@ -145,7 +156,7 @@ export async function inviteUserAction(
     const session = await requireUser();
     const action = actionForInvite(role);
     if (!hasPermission(session, action, 'users')) {
-      return { ok: false, error: `Permission denied: ${session.role} cannot invite ${role}.` };
+      return { ok: false, error: `Keine Berechtigung: ${session.role} darf ${role} nicht einladen.` };
     }
     const payload = await payloadInstance();
     const token = generateToken();
@@ -231,14 +242,7 @@ export async function setPasswordFromTokenAction(
       data: { email: user.email, password: newPassword },
     });
     if (loginResult.token) {
-      const cookieStore = await cookies();
-      cookieStore.set('payload-token', loginResult.token, {
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
-        path: '/',
-        maxAge: 60 * 60 * 24,
-      });
+      await setAuthCookie(loginResult.token);
     }
     const role = (user.role ?? 'contributor') as Role;
     return { ok: true, redirectTo: redirectForRole(role) };
