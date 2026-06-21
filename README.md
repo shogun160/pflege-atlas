@@ -4,7 +4,7 @@ Offene, qualitätsgesicherte Wissensplattform für die professionelle Pflege.
 
 Schwerpunkt Langzeitpflege (stationär und ambulant). Inhalte sind frei nutzbar unter CC BY-SA 4.0; der Plattform-Code ist MIT.
 
-> **Status:** in aktiver Entwicklung. V1.5 ist live (Visual Identity + Submission-PR-Sync). V1.6 (Editorial-Workflow + Auth) ist in Review auf `feat/v1-6-editorial-auth`. Suche bleibt die nächste Iteration.
+> **Status:** in aktiver Entwicklung. V1.6 (Editorial-Workflow + Auth) auf main. V1.7 (Deployment auf Vercel/Neon + DSGVO-Texte) in Review auf `feat/v1-7-deployment-dsgvo`. Nach Live-Gang: DSGVO-Code-Härtung (Articles-Export-Pagination, Audit-Log, Hard-Delete) + Phase-2-Migration zu Hetzner+Coolify.
 
 ## Stack
 
@@ -64,6 +64,22 @@ Anschließend:
 - Contributor dashboard: `/mein-bereich`
 - Account is invitation-only — admins/editors invite via Payload-Admin (Users → „Neue:n User einladen").
 - Required env var (Production): `NEXT_PUBLIC_SITE_URL` (used in magic-link generation).
+
+## Deployment (V1.7)
+
+Phase 1 läuft auf Vercel Hobby (Frankfurt) + Neon Free (eu-central-1) + Cloudflare R2 (EU) zu 0 € laufenden Kosten. Phase 2 (Hetzner CX22 + Coolify, ~4.51 €/Monat) ist als spätere Migration vorgesehen.
+
+- **Hosting:** Vercel Hobby, Region `fra1`
+- **Datenbank:** Neon Postgres (Free Tier, eu-central-1, 0.5 GB)
+- **Media-Storage:** Cloudflare R2 (10 GB free, EU-Bucket)
+- **Mail:** Resend
+- **Spam-Schutz:** Cloudflare Turnstile (cookieless)
+- **Reichweitenmessung:** Cloudflare Web Analytics (cookieless, kein Banner)
+- **Cron:** Vercel Cron daily 03:00 UTC für rejected-Submissions-Auto-Delete (30 Tage Retention)
+
+Deploy-Runbook + Migration-Notes: siehe `docs/DEPLOYMENT.md`.
+
+Datenschutzerklärung + Impressum: `/datenschutz` und `/impressum` öffentlich.
 
 ## Projektstruktur
 

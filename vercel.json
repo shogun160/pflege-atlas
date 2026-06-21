@@ -1,0 +1,14 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "buildCommand": "pnpm install && pnpm build && pnpm payload migrate",
+  "installCommand": "pnpm install",
+  "outputDirectory": ".next",
+  "regions": ["fra1"],
+  "crons": [
+    {
+      "path": "/api/cron/cleanup-submissions",
+      "schedule": "0 3 * * *"
+    }
+  ]
+}
