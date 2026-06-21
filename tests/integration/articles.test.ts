@@ -191,4 +191,54 @@ describe('Articles Collection', () => {
     expect(slugs).toContain(publishedSlug);
     expect(slugs).not.toContain(draftSlug);
   });
+
+  it('akzeptiert status=in_review und status=archived (post enum extend)', async () => {
+    const ts = Date.now();
+    const inReviewSlug = `enum-in-review-${ts}`;
+    const archivedSlug = `enum-archived-${ts}`;
+
+    const user = await payload.create({
+      collection: 'users',
+      data: {
+        email: `enum-extend-${ts}@example.com`,
+        password: 'test-pw-12345!',
+        displayName: 'Test Autor',
+        role: 'editor',
+      },
+    });
+
+    const inReviewArticle = await payload.create({
+      collection: 'articles',
+      data: {
+        title: `Enum-In-Review-${ts}`,
+        slug: inReviewSlug,
+        intent: 'bedside',
+        summary: 'in_review',
+        definition: makeLexicalDoc('d') as any,
+        praxis: makeLexicalDoc('d') as any,
+        risiken: makeLexicalDoc('d') as any,
+        quellen: makeLexicalDoc('d') as any,
+        authors: [user.id],
+        status: 'in_review',
+      },
+    });
+
+    expect(inReviewArticle.status).toBe('in_review');
+
+    const updated = await payload.update({
+      collection: 'articles',
+      id: inReviewArticle.id,
+      data: { status: 'archived', slug: archivedSlug },
+    });
+
+    expect(updated.status).toBe('archived');
+
+    const anonResult = await payload.find({
+      collection: 'articles',
+      where: { slug: { in: [inReviewSlug, archivedSlug] } },
+      overrideAccess: false,
+    });
+
+    expect(anonResult.docs.map((d) => d.slug)).toEqual([]);
+  });
 });
