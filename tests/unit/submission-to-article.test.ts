@@ -11,9 +11,9 @@ const LEX = (text: string) => ({
 describe('applySubmissionToArticle (new_article)', () => {
   it('maps proposed fields to a fresh article patch', () => {
     const sub = {
-      type: 'new_article',
+      type: 'new_article' as const,
       proposedTitle: 'Mein Titel',
-      proposedIntent: 'bedside',
+      proposedIntent: 'bedside' as const,
       proposedSummary: 'Kurz',
       proposedSlug: 'mein-titel',
       proposedDefinition: LEX('def'),
@@ -33,7 +33,7 @@ describe('applySubmissionToArticle (new_article)', () => {
 
   it('falls back to "background" intent when not proposed', () => {
     const sub = {
-      type: 'new_article',
+      type: 'new_article' as const,
       proposedTitle: 'X',
       proposedSummary: '',
       proposedSlug: 'x',
@@ -62,7 +62,7 @@ describe('applySubmissionToArticle (correction)', () => {
 
   it('only replaces sections that have edited content', () => {
     const sub = {
-      type: 'correction',
+      type: 'correction' as const,
       editedPraxis: LEX('new-prx'),
     };
     const result = applySubmissionToArticle(sub, article);
@@ -74,7 +74,7 @@ describe('applySubmissionToArticle (correction)', () => {
   });
 
   it('returns slug from existing article (no override)', () => {
-    const sub = { type: 'correction', editedDefinition: LEX('x') };
+    const sub = { type: 'correction' as const, editedDefinition: LEX('x') };
     const result = applySubmissionToArticle(sub, article);
     expect(result.slug).toBe('demo');
   });

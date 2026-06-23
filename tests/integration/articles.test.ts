@@ -72,13 +72,13 @@ describe('Articles Collection', () => {
         title,
         intent: 'bedside',
         summary: 'Kurzbeschreibung für Test',
-        definition: makeLexicalDoc('def') as any,
-        praxis: makeLexicalDoc('pr') as any,
-        risiken: makeLexicalDoc('ri') as any,
-        quellen: makeLexicalDoc('qu') as any,
+        definition: makeLexicalDoc('def') as never,
+        praxis: makeLexicalDoc('pr') as never,
+        risiken: makeLexicalDoc('ri') as never,
+        quellen: makeLexicalDoc('qu') as never,
         authors: [user.id],
         status: 'published',
-      },
+      } as never,
     });
 
     expect(created.slug).toBe(expectedSlug);
@@ -120,13 +120,13 @@ describe('Articles Collection', () => {
         title,
         intent: 'bedside',
         summary: 'Hook-Push-Regression',
-        definition: makeLexicalDoc('def') as any,
-        praxis: makeLexicalDoc('pr') as any,
-        risiken: makeLexicalDoc('ri') as any,
-        quellen: makeLexicalDoc('qu') as any,
+        definition: makeLexicalDoc('def') as never,
+        praxis: makeLexicalDoc('pr') as never,
+        risiken: makeLexicalDoc('ri') as never,
+        quellen: makeLexicalDoc('qu') as never,
         authors: [user.id],
         status: 'published',
-      },
+      } as never,
     });
 
     expect(vi.mocked(upsertArticleMarkdown)).toHaveBeenCalledTimes(1);

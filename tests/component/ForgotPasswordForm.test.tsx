@@ -7,7 +7,7 @@ const { mockAction } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/app/(frontend)/passwort-vergessen/actions', () => ({
-  forgotPasswordFormAction: (...args: unknown[]) => mockAction(...args),
+  forgotPasswordFormAction: (...args: [unknown, FormData]) => mockAction(...args),
 }));
 
 describe('ForgotPasswordForm', () => {

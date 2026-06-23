@@ -22,7 +22,7 @@ describe('buildEmailConfig', () => {
     const factory = buildEmailConfig();
     expect(factory).toBeDefined();
     expect(typeof factory).toBe('function');
-    const adapter = factory!();
+    const adapter = factory!({ payload: {} as never });
     expect(adapter).toHaveProperty('name', 'resend-rest');
     expect(adapter).toHaveProperty('defaultFromAddress', 'noreply@pflegeatlas.org');
   });
@@ -32,7 +32,7 @@ describe('buildEmailConfig', () => {
     vi.stubEnv('RESEND_FROM_ADDRESS', 'noreply@pflegeatlas.org');
     vi.stubEnv('RESEND_FROM_NAME', '');
     const factory = buildEmailConfig();
-    const adapter = factory!();
+    const adapter = factory!({ payload: {} as never });
     expect(adapter).toHaveProperty('defaultFromName', 'PflegeAtlas');
   });
 });

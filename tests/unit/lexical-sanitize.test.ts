@@ -20,8 +20,8 @@ describe('sanitizeLexicalRoot', () => {
     const result = sanitizeLexicalRoot(JSON.parse(JSON.stringify(validRoot)));
     expect(result.type).toBe('root');
     expect(result.children[0].type).toBe('paragraph');
-    expect(result.children[0].children[0].type).toBe('text');
-    expect(result.children[0].children[0].text).toBe('Hallo');
+    expect(result.children[0]!.children![0].type).toBe('text');
+    expect(result.children[0]!.children![0].text).toBe('Hallo');
   });
 
   it('strips an unknown node type', () => {
@@ -35,7 +35,7 @@ describe('sanitizeLexicalRoot', () => {
     };
     const result = sanitizeLexicalRoot(input);
     expect(result.children).toHaveLength(1);
-    expect(result.children[0].children[0].text).toBe('keep');
+    expect(result.children[0]!.children![0].text).toBe('keep');
   });
 
   it('reduces text format bitmask to bold+italic only', () => {
@@ -45,7 +45,7 @@ describe('sanitizeLexicalRoot', () => {
       children: [paragraph('fancy', 0b11111)],
     };
     const result = sanitizeLexicalRoot(input);
-    expect(result.children[0].children[0].format).toBe(0b11);
+    expect(result.children[0]!.children![0].format).toBe(0b11);
   });
 
   it('passes paragraph + bullet list + listitem through', () => {
@@ -69,7 +69,7 @@ describe('sanitizeLexicalRoot', () => {
     };
     const result = sanitizeLexicalRoot(input);
     expect(result.children[0].type).toBe('list');
-    expect(result.children[0].children[0].type).toBe('listitem');
+    expect(result.children[0]!.children![0].type).toBe('listitem');
   });
 
   it('keeps a https link', () => {
@@ -92,8 +92,8 @@ describe('sanitizeLexicalRoot', () => {
       ],
     };
     const result = sanitizeLexicalRoot(input);
-    expect(result.children[0].children[0].type).toBe('link');
-    expect(result.children[0].children[0].url).toBe('https://example.org');
+    expect(result.children[0]!.children![0].type).toBe('link');
+    expect(result.children[0]!.children![0].url).toBe('https://example.org');
   });
 
   it('strips a javascript: link', () => {
@@ -116,7 +116,7 @@ describe('sanitizeLexicalRoot', () => {
       ],
     };
     const result = sanitizeLexicalRoot(input);
-    expect(result.children[0].children).toHaveLength(0);
+    expect(result.children[0]!.children!).toHaveLength(0);
   });
 
   it('strips a data: link', () => {
@@ -139,7 +139,7 @@ describe('sanitizeLexicalRoot', () => {
       ],
     };
     const result = sanitizeLexicalRoot(input);
-    expect(result.children[0].children).toHaveLength(0);
+    expect(result.children[0]!.children!).toHaveLength(0);
   });
 
   it('keeps a fragment-only link', () => {
@@ -162,7 +162,7 @@ describe('sanitizeLexicalRoot', () => {
       ],
     };
     const result = sanitizeLexicalRoot(input);
-    expect(result.children[0].children[0].type).toBe('link');
+    expect(result.children[0]!.children![0].type).toBe('link');
   });
 
   it('keeps a mailto link', () => {
@@ -185,7 +185,7 @@ describe('sanitizeLexicalRoot', () => {
       ],
     };
     const result = sanitizeLexicalRoot(input);
-    expect(result.children[0].children[0].type).toBe('link');
+    expect(result.children[0]!.children![0].type).toBe('link');
   });
 
   it('strips an over-long URL', () => {
@@ -209,7 +209,7 @@ describe('sanitizeLexicalRoot', () => {
       ],
     };
     const result = sanitizeLexicalRoot(input);
-    expect(result.children[0].children).toHaveLength(0);
+    expect(result.children[0]!.children!).toHaveLength(0);
   });
 
   it('returns a minimal empty root for null input', () => {

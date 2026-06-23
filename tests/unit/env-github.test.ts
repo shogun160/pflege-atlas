@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { getGithubConfig, assertGithubConfigInProduction } from '@/lib/env';
 
 const VARS = [
@@ -71,17 +71,17 @@ describe('assertGithubConfigInProduction', () => {
   });
 
   it('does nothing in development', () => {
-    process.env.NODE_ENV = 'development';
+    vi.stubEnv('NODE_ENV', 'development');
     expect(() => assertGithubConfigInProduction()).not.toThrow();
   });
 
   it('throws in production when private key missing', () => {
-    process.env.NODE_ENV = 'production';
+    vi.stubEnv('NODE_ENV', 'production');
     expect(() => assertGithubConfigInProduction()).toThrow(/GITHUB_APP_PRIVATE_KEY/);
   });
 
   it('passes in production when all vars set', () => {
-    process.env.NODE_ENV = 'production';
+    vi.stubEnv('NODE_ENV', 'production');
     process.env.GITHUB_APP_ID = '1';
     process.env.GITHUB_APP_INSTALLATION_ID = '2';
     process.env.GITHUB_APP_PRIVATE_KEY = 'x';
@@ -89,7 +89,7 @@ describe('assertGithubConfigInProduction', () => {
   });
 
   it('does nothing during next build phase even in production', () => {
-    process.env.NODE_ENV = 'production';
+    vi.stubEnv('NODE_ENV', 'production');
     process.env.NEXT_PHASE = 'phase-production-build';
     expect(() => assertGithubConfigInProduction()).not.toThrow();
   });

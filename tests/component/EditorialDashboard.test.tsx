@@ -13,7 +13,7 @@ describe('EditorialDashboard', () => {
     ],
   };
   it('renders all four stats cards with values and correct drill-down links', () => {
-    render(<EditorialDashboard {...(props as never)} />);
+    render(<EditorialDashboard {...props} />);
     expect(screen.getByRole('link', { name: /Eingegangen/ })).toHaveAttribute(
       'href',
       expect.stringContaining('reviewStatus][equals]=pending'),
@@ -35,7 +35,7 @@ describe('EditorialDashboard', () => {
     expect(screen.getByText('2')).toBeInTheDocument();
   });
   it('renders recent items with links pointing at the correct collection detail URLs', () => {
-    render(<EditorialDashboard {...(props as never)} />);
+    render(<EditorialDashboard {...props} />);
     expect(screen.getByRole('link', { name: 'Sub A' })).toHaveAttribute(
       'href',
       '/admin/collections/submissions/1',
@@ -52,7 +52,7 @@ describe('EditorialDashboard', () => {
         { id: 42, status: 'in_review', updatedAt: '2026-06-22T11:00:00Z' },
       ],
     };
-    render(<EditorialDashboard {...(propsWithUntitledArticle as never)} />);
+    render(<EditorialDashboard {...propsWithUntitledArticle} />);
     expect(screen.getByRole('link', { name: 'Ohne Titel' })).toHaveAttribute(
       'href',
       '/admin/collections/articles/42',

@@ -7,7 +7,7 @@ const { mockAction } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/app/(frontend)/login/actions', () => ({
-  loginFormAction: (...args: unknown[]) => mockAction(...args),
+  loginFormAction: (...args: [unknown, FormData]) => mockAction(...args),
 }));
 
 describe('LoginForm', () => {
