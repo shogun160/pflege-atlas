@@ -2,6 +2,7 @@
 
 import 'server-only';
 import { getPayloadClient } from '@/lib/payload';
+import { getSession } from '@/lib/auth';
 import { getOctokit } from '@/lib/github-app';
 import { getGithubConfig } from '@/lib/env';
 import { slugify } from '@/lib/slugify';
@@ -56,6 +57,11 @@ function buildPRBody(args: {
 
 export async function inReviewAction(submissionId: number): Promise<ActionResult> {
   const payload = await getPayloadClient();
+  // The Submissions beforeChange hook gates auto-claim on `req.user?.id`.
+  // Without forwarding the session here, the local-API call below runs as
+  // anonymous and the hook silently leaves `currentReviewer` NULL (V1.7
+  // smoke bug).
+  const session = await getSession();
   const sub = await payload.findByID({ collection: 'submissions', id: submissionId, depth: 0 });
   if (!sub) return { ok: false, error: 'Submission not found' };
 
@@ -124,6 +130,7 @@ export async function inReviewAction(submissionId: number): Promise<ActionResult
       collection: 'submissions',
       id: submissionId,
       req: { transactionID: txn } as never,
+      user: session ? ({ id: session.id, role: session.role } as never) : undefined,
       data: {
         reviewStatus: 'in_review',
         prNumber: prResult.prNumber,
