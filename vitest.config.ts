@@ -10,6 +10,12 @@ const alias = {
 export default defineConfig({
   test: {
     globals: true,
+    // Integration-Tests teilen sich einen Postgres-Connection-Pool;
+    // parallele File-Ausführung erschöpft ihn und flaket auf Cold-Start.
+    // jsdom-Tests laufen damit auch sequenziell — vertretbarer Trade-off,
+    // sie sind schnell. (Vitest 4 hat `poolOptions` entfernt; das hier ist
+    // die top-level Migration.)
+    fileParallelism: false,
     projects: [
       {
         resolve: { alias },
@@ -28,10 +34,6 @@ export default defineConfig({
           setupFiles: ['./tests/setup.node.ts'],
           include: ['tests/integration/**/*.test.ts'],
           testTimeout: 30000,
-          // Integration-Tests teilen sich einen Postgres-Connection-Pool;
-          // parallele Forks erschöpfen ihn und flaken auf Cold-Start.
-          pool: 'forks',
-          poolOptions: { forks: { singleFork: true } },
         },
       },
     ],
