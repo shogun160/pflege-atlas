@@ -8,6 +8,7 @@ import * as migration_20260622_100100_users_lifecycle_and_profile_fields from '.
 import * as migration_20260622_100200_submissions_articles_media_review_fields from './20260622_100200_submissions_articles_media_review_fields';
 import * as migration_20260622_100300_submissions_media_review_fields_repair from './20260622_100300_submissions_media_review_fields_repair';
 import * as migration_20260622_100400_promote_initial_admin from './20260622_100400_promote_initial_admin';
+import * as migration_20260623_100000_fk_naming_consistency from './20260623_100000_fk_naming_consistency';
 
 export const migrations = [
   {
@@ -59,5 +60,10 @@ export const migrations = [
     up: migration_20260622_100400_promote_initial_admin.up,
     down: migration_20260622_100400_promote_initial_admin.down,
     name: '20260622_100400_promote_initial_admin',
+  },
+  {
+    up: migration_20260623_100000_fk_naming_consistency.up,
+    down: migration_20260623_100000_fk_naming_consistency.down,
+    name: '20260623_100000_fk_naming_consistency',
   },
 ];
