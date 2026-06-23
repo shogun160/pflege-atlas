@@ -17,6 +17,7 @@ export default function ConstructionPage() {
         width={1376}
         height={768}
         priority
+        unoptimized
         className="mb-10 w-full rounded-lg"
       />
 
