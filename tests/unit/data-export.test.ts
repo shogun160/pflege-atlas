@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { shapeExport } from '@/lib/data-export';
+import {
+  shapeExport,
+  EXPORT_HARD_CAP,
+  EXPORT_PAGE_SIZE,
+  ExportTooLargeError,
+} from '@/lib/data-export';
 
 describe('shapeExport', () => {
   it('strips password and includes expected sections', () => {
@@ -57,5 +62,23 @@ describe('shapeExport', () => {
     // Non-sensitive fields still pass through:
     expect(export_.user.email).toBe('a@b.com');
     expect(export_.user.role).toBe('contributor');
+  });
+});
+
+describe('export constants and errors', () => {
+  it('exports EXPORT_HARD_CAP = 10_000', () => {
+    expect(EXPORT_HARD_CAP).toBe(10_000);
+  });
+
+  it('exports EXPORT_PAGE_SIZE = 500', () => {
+    expect(EXPORT_PAGE_SIZE).toBe(500);
+  });
+
+  it('ExportTooLargeError carries collection name + count in message', () => {
+    const err = new ExportTooLargeError('submissions', 10_000);
+    expect(err).toBeInstanceOf(Error);
+    expect(err.name).toBe('ExportTooLargeError');
+    expect(err.message).toContain('submissions');
+    expect(err.message).toContain('10000');
   });
 });

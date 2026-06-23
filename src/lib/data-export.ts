@@ -24,6 +24,18 @@ export const SENSITIVE_USER_FIELDS = [
   'apiKeyIndex',
 ] as const;
 
+export const EXPORT_HARD_CAP = 10_000;
+export const EXPORT_PAGE_SIZE = 500;
+
+export class ExportTooLargeError extends Error {
+  constructor(collection: string, count: number) {
+    super(
+      `Export aborted: ${collection} reached hard cap (${count} >= ${EXPORT_HARD_CAP})`,
+    );
+    this.name = 'ExportTooLargeError';
+  }
+}
+
 export function shapeExport(args: {
   user: Record<string, unknown>;
   submissions: Array<Record<string, unknown>>;
