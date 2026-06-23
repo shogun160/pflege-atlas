@@ -111,43 +111,55 @@ describe('exportOwnDataAction', () => {
   it('paginates beyond the legacy 1000-limit (all 1100 submissions returned)', async () => {
     const user = await createUserFixture(payload, 'contributor');
     const SEED_COUNT = 1100;
+    const seedTitlePrefix = `PaginationSeed-${user.id}-`;
+    const createdIds: number[] = [];
 
-    const batchSize = 50;
-    for (let batch = 0; batch < SEED_COUNT / batchSize; batch++) {
-      await Promise.all(
-        Array.from({ length: batchSize }, (_, i) =>
-          payload.create({
-            collection: 'submissions',
-            data: {
-              type: 'new_article',
-              proposedTitle: `Bulk ${batch * batchSize + i + 1}`,
-              submittedBy: user.id,
-            } as never,
-          }),
-        ),
+    try {
+      const batchSize = 50;
+      for (let batch = 0; batch < SEED_COUNT / batchSize; batch++) {
+        const docs = await Promise.all(
+          Array.from({ length: batchSize }, (_, i) =>
+            payload.create({
+              collection: 'submissions',
+              data: {
+                type: 'new_article',
+                proposedTitle: `${seedTitlePrefix}${batch * batchSize + i + 1}`,
+                submittedBy: user.id,
+              } as never,
+            }),
+          ),
+        );
+        for (const d of docs) createdIds.push(d.id as number);
+      }
+
+      const { token } = await payload.login({
+        collection: 'users',
+        data: { email: user.email, password: user.password },
+      });
+      vi.doMock('next/headers', () => ({
+        cookies: async () => ({
+          get: (n: string) => (n === 'payload-token' ? { value: token } : undefined),
+          set: vi.fn(),
+          delete: vi.fn(),
+        }),
+      }));
+
+      const { exportOwnDataAction } = await import('@/lib/auth');
+      const result = await exportOwnDataAction();
+      expect(result.ok).toBe(true);
+      const data = JSON.parse(result.json!);
+      const mine = data.submissions.filter(
+        (s: { submittedBy?: number }) => s.submittedBy === user.id,
       );
+      expect(mine.length).toBe(SEED_COUNT);
+      vi.doUnmock('next/headers');
+    } finally {
+      // Cleanup: damit der Seed nicht in der Dev-DB liegen bleibt und
+      // andere Tests (z.B. cleanup-cron) nicht stört. Direkt per
+      // pool.query, weil payload.delete den AfterRead-Hook triggert,
+      // der auf den fehlenden richText-Sektionen crasht.
+      const pool = (payload.db as unknown as { pool: { query: (q: string, p: unknown[]) => Promise<unknown> } }).pool;
+      await pool.query('DELETE FROM submissions WHERE id = ANY($1::int[])', [createdIds]);
     }
-
-    const { token } = await payload.login({
-      collection: 'users',
-      data: { email: user.email, password: user.password },
-    });
-    vi.doMock('next/headers', () => ({
-      cookies: async () => ({
-        get: (n: string) => (n === 'payload-token' ? { value: token } : undefined),
-        set: vi.fn(),
-        delete: vi.fn(),
-      }),
-    }));
-
-    const { exportOwnDataAction } = await import('@/lib/auth');
-    const result = await exportOwnDataAction();
-    expect(result.ok).toBe(true);
-    const data = JSON.parse(result.json!);
-    const mine = data.submissions.filter(
-      (s: { submittedBy?: number }) => s.submittedBy === user.id,
-    );
-    expect(mine.length).toBe(SEED_COUNT);
-    vi.doUnmock('next/headers');
   }, 120_000);
 });
