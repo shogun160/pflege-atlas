@@ -8,7 +8,7 @@ import { sendMail } from './mail';
 import { renderInvitationMail } from './mail-templates/invitation';
 import { renderWelcomeMail } from './mail-templates/welcome';
 import { anonymizeUserPatch } from './user-soft-delete';
-import { shapeExport } from './data-export';
+import { shapeExport, findAllForExport, ExportTooLargeError } from './data-export';
 
 export interface Session {
   id: number;
@@ -410,28 +410,36 @@ export async function exportOwnDataAction(): Promise<{ ok: boolean; json?: strin
     const session = await requireUser();
     const payload = await payloadInstance();
     const user = await payload.findByID({ collection: 'users', id: session.id, depth: 0 });
-    const submissions = await payload.find({
+
+    const submissions = await findAllForExport<Record<string, unknown>>({
+      payload,
       collection: 'submissions',
       where: { submittedBy: { equals: session.id } },
-      limit: 1000,
-      depth: 0,
     });
+
     // `authors` is a hasMany relationship — Payload's `equals` operator
     // matches any document whose array contains the given ID, which is
     // exactly what we want here.
-    const articles = await payload.find({
+    const articles = await findAllForExport<Record<string, unknown>>({
+      payload,
       collection: 'articles',
       where: { authors: { equals: session.id } },
-      limit: 1000,
-      depth: 0,
     });
+
     const shape = shapeExport({
       user: user as never,
-      submissions: submissions.docs as never,
-      articles: articles.docs as never,
+      submissions,
+      articles,
     });
     return { ok: true, json: JSON.stringify(shape, null, 2) };
   } catch (err) {
+    if (err instanceof ExportTooLargeError) {
+      return {
+        ok: false,
+        error:
+          'Datenmenge übersteigt 10.000 Einträge — bitte datenschutz@pflegeatlas.org für manuellen Vollexport kontaktieren.',
+      };
+    }
     return { ok: false, error: err instanceof Error ? err.message : 'Export failed.' };
   }
 }
