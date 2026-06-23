@@ -28,6 +28,10 @@ export default defineConfig({
           setupFiles: ['./tests/setup.node.ts'],
           include: ['tests/integration/**/*.test.ts'],
           testTimeout: 30000,
+          // Integration-Tests teilen sich einen Postgres-Connection-Pool;
+          // parallele Forks erschöpfen ihn und flaken auf Cold-Start.
+          pool: 'forks',
+          poolOptions: { forks: { singleFork: true } },
         },
       },
     ],
