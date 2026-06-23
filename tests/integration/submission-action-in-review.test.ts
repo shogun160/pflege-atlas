@@ -181,6 +181,7 @@ describe('inReviewAction', () => {
     const result = await inReviewAction(7);
 
     expect(result.ok).toBe(false);
+    if (result.ok) throw new Error('expected failure result');
     expect(result.error).toMatch(/GitHub API down/);
     expect(payload.db.rollbackTransaction).toHaveBeenCalled();
     expect(payload.db.commitTransaction).not.toHaveBeenCalled();

@@ -1,5 +1,6 @@
 // tests/unit/github-pr.test.ts
 import { describe, expect, it, vi } from 'vitest';
+import type { Octokit } from '@octokit/rest';
 import {
   createSubmissionPR,
   pushSubmissionEdit,
@@ -7,7 +8,33 @@ import {
   closeSubmissionPR,
 } from '@/lib/github-pr';
 
-function mockOctokit() {
+// `MockOctokit` is the shape exposed inside tests for `.mock`-assertions.
+// Returning `as never` (old) propagated to TS2339 on every `.rest.x` access.
+// We declare a precise mock-shape and provide a narrow cast to `Octokit`
+// for the production-API boundary.
+type MockOctokit = {
+  rest: {
+    git: {
+      getRef: ReturnType<typeof vi.fn>;
+      createRef: ReturnType<typeof vi.fn>;
+      deleteRef: ReturnType<typeof vi.fn>;
+    };
+    repos: {
+      getContent: ReturnType<typeof vi.fn>;
+      createOrUpdateFileContents: ReturnType<typeof vi.fn>;
+      deleteFile: ReturnType<typeof vi.fn>;
+    };
+    pulls: {
+      create: ReturnType<typeof vi.fn>;
+      merge: ReturnType<typeof vi.fn>;
+      update: ReturnType<typeof vi.fn>;
+    };
+  };
+};
+
+const asOctokit = (m: MockOctokit) => m as unknown as Octokit;
+
+function mockOctokit(): MockOctokit {
   return {
     rest: {
       git: {
@@ -20,6 +47,7 @@ function mockOctokit() {
         createOrUpdateFileContents: vi
           .fn()
           .mockResolvedValue({ data: { commit: { sha: 'commit-sha' } } }),
+        deleteFile: vi.fn().mockResolvedValue({}),
       },
       pulls: {
         create: vi.fn().mockResolvedValue({ data: { number: 42 } }),
@@ -27,7 +55,7 @@ function mockOctokit() {
         update: vi.fn().mockResolvedValue({}),
       },
     },
-  } as never;
+  };
 }
 
 const owner = 'shogun160';
@@ -50,9 +78,8 @@ describe('createSubmissionPR', () => {
   it('creates branch, writes file, opens PR', async () => {
     const oct = mockOctokit();
     // Existing file lookup throws 404 → it's a new file
-    (oct as never as { rest: { repos: { getContent: { mockRejectedValueOnce: (e: unknown) => void } } } })
-      .rest.repos.getContent.mockRejectedValueOnce({ status: 404 });
-    const result = await createSubmissionPR(oct, {
+    oct.rest.repos.getContent.mockRejectedValueOnce({ status: 404 });
+    const result = await createSubmissionPR(asOctokit(oct), {
       owner,
       repo,
       submissionId: 7,
@@ -99,7 +126,7 @@ describe('pushSubmissionEdit', () => {
     oct.rest.repos.getContent = vi.fn().mockResolvedValueOnce({
       data: { sha: 'old-sha' },
     });
-    await pushSubmissionEdit(oct, {
+    await pushSubmissionEdit(asOctokit(oct), {
       owner,
       repo,
       branch: 'submission/7',
@@ -124,7 +151,7 @@ describe('pushSubmissionEdit', () => {
       // New path lookup: 404
       .mockRejectedValueOnce({ status: 404 });
     oct.rest.repos.deleteFile = vi.fn().mockResolvedValue({});
-    await pushSubmissionEdit(oct, {
+    await pushSubmissionEdit(asOctokit(oct), {
       owner,
       repo,
       branch: 'submission/7',
@@ -150,7 +177,7 @@ describe('mergeSubmissionPR', () => {
 
   it('squash-merges and deletes the branch', async () => {
     const oct = mockOctokit();
-    await mergeSubmissionPR(oct, { owner, repo, prNumber: 42, branch: 'submission/7' });
+    await mergeSubmissionPR(asOctokit(oct), { owner, repo, prNumber: 42, branch: 'submission/7' });
     expect(oct.rest.pulls.merge).toHaveBeenCalledWith(
       expect.objectContaining({ pull_number: 42, merge_method: 'squash' }),
     );
@@ -168,7 +195,7 @@ describe('closeSubmissionPR', () => {
 
   it('updates PR state to closed and deletes branch', async () => {
     const oct = mockOctokit();
-    await closeSubmissionPR(oct, { owner, repo, prNumber: 42, branch: 'submission/7' });
+    await closeSubmissionPR(asOctokit(oct), { owner, repo, prNumber: 42, branch: 'submission/7' });
     expect(oct.rest.pulls.update).toHaveBeenCalledWith(
       expect.objectContaining({ pull_number: 42, state: 'closed' }),
     );

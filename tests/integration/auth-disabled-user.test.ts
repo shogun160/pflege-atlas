@@ -48,6 +48,6 @@ describe('disabled user login', () => {
       collection: 'users',
       data: { email, password: 'TestPass123!' },
     });
-    expect(result.user.email).toBe(email);
+    expect(result.user?.email).toBe(email);
   });
 });

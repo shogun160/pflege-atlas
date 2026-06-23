@@ -8,8 +8,8 @@ const { mockDelete, mockDownload } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/app/(frontend)/mein-bereich/actions', () => ({
-  deleteAccountFormAction: (...args: unknown[]) => mockDelete(...args),
-  downloadDataAction: (...args: unknown[]) => mockDownload(...args),
+  deleteAccountFormAction: (...args: [unknown, FormData]) => mockDelete(...args),
+  downloadDataAction: () => mockDownload(),
 }));
 
 describe('AccountActions', () => {

@@ -46,8 +46,8 @@ describe('normalizeLexical', () => {
         },
       ],
     });
-    expect(normalized?.children[0]).not.toHaveProperty('key');
-    expect(normalized?.children[0]).not.toHaveProperty('version');
+    expect(normalized?.children?.[0]).not.toHaveProperty('key');
+    expect(normalized?.children?.[0]).not.toHaveProperty('version');
   });
 
   it('returns null for null input', () => {

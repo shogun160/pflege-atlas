@@ -7,7 +7,7 @@ const { mockAction } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/app/(frontend)/mein-bereich/actions', () => ({
-  saveProfileFormAction: (...args: unknown[]) => mockAction(...args),
+  saveProfileFormAction: (...args: [unknown, FormData]) => mockAction(...args),
 }));
 
 const user = {
