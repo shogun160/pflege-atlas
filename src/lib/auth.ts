@@ -9,6 +9,7 @@ import { renderInvitationMail } from './mail-templates/invitation';
 import { renderWelcomeMail } from './mail-templates/welcome';
 import { anonymizeUserPatch } from './user-soft-delete';
 import { shapeExport, findAllForExport, ExportTooLargeError } from './data-export';
+import { hardDeleteAvatar } from './avatar-cleanup';
 
 export interface Session {
   id: number;
@@ -367,6 +368,23 @@ export async function updateOwnProfileAction(
       return { ok: true };
     }
     const payload = await payloadInstance();
+
+    // Avatar-Hard-Delete bei Removal (id → null) oder Replacement (oldId → newId).
+    // Vor dem update lesen, damit wir den alten Wert kennen. Helper schluckt Fehler.
+    if (data.avatar !== undefined) {
+      const current = await payload.findByID({ collection: 'users', id: session.id, depth: 0 });
+      const currentAvatar = (current as { avatar?: number | { id: number } | null }).avatar;
+      const oldAvatarId =
+        typeof currentAvatar === 'object' && currentAvatar ? currentAvatar.id : (currentAvatar ?? null);
+      const newAvatarId = data.avatar ?? null;
+      if (oldAvatarId !== null && oldAvatarId !== newAvatarId) {
+        await hardDeleteAvatar(payload, oldAvatarId, {
+          userId: session.id,
+          trigger: 'profile-update',
+        });
+      }
+    }
+
     await payload.update({
       collection: 'users',
       id: session.id,
@@ -391,6 +409,19 @@ export async function deleteOwnAccountAction(
       return { ok: false, error: 'Admin-Accounts können sich nicht selbst löschen.' };
     }
     const payload = await payloadInstance();
+
+    // Avatar VOR der Anonymisierung hart löschen: anonymizeUserPatch
+    // setzt zwar avatar:null, würde aber Media-Doc + R2-File als
+    // Orphan zurücklassen. Failure schluckt der Helper.
+    const current = await payload.findByID({ collection: 'users', id: session.id, depth: 0 });
+    const currentAvatar = (current as { avatar?: number | { id: number } | null }).avatar;
+    const currentAvatarId =
+      typeof currentAvatar === 'object' && currentAvatar ? currentAvatar.id : (currentAvatar ?? null);
+    await hardDeleteAvatar(payload, currentAvatarId, {
+      userId: session.id,
+      trigger: 'account-delete',
+    });
+
     const patch = anonymizeUserPatch();
     await payload.update({
       collection: 'users',
