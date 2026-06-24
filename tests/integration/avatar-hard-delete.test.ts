@@ -85,3 +85,74 @@ describe('avatar hard-delete on account-delete', () => {
     vi.doUnmock('next/headers');
   });
 });
+
+describe('avatar hard-delete on profile-update', () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  it('hard-deletes old avatar when user removes avatar (id → null)', async () => {
+    const user = await createUserFixture(payload, 'contributor');
+    const avatar = await createAvatarFixture(payload, user.id);
+    await payload.update({
+      collection: 'users',
+      id: user.id,
+      data: { avatar: avatar.id } as never,
+    });
+
+    const { token } = await payload.login({
+      collection: 'users',
+      data: { email: user.email, password: user.password },
+    });
+    mockSessionCookie(token);
+
+    const { updateOwnProfileAction } = await import('@/lib/auth');
+    const result = await updateOwnProfileAction({ avatar: null });
+    expect(result.ok).toBe(true);
+
+    await expect(
+      payload.findByID({ collection: 'media', id: avatar.id }),
+    ).rejects.toThrow();
+
+    const refetched = await payload.findByID({ collection: 'users', id: user.id });
+    expect((refetched as { avatar: number | null }).avatar).toBeNull();
+
+    vi.doUnmock('next/headers');
+  });
+
+  it('hard-deletes old avatar when user replaces avatar (oldId → newId)', async () => {
+    const user = await createUserFixture(payload, 'contributor');
+    const oldAvatar = await createAvatarFixture(payload, user.id);
+    await payload.update({
+      collection: 'users',
+      id: user.id,
+      data: { avatar: oldAvatar.id } as never,
+    });
+    const newAvatar = await createAvatarFixture(payload, user.id);
+
+    const { token } = await payload.login({
+      collection: 'users',
+      data: { email: user.email, password: user.password },
+    });
+    mockSessionCookie(token);
+
+    const { updateOwnProfileAction } = await import('@/lib/auth');
+    const result = await updateOwnProfileAction({ avatar: newAvatar.id });
+    expect(result.ok).toBe(true);
+
+    await expect(
+      payload.findByID({ collection: 'media', id: oldAvatar.id }),
+    ).rejects.toThrow();
+
+    const newStill = await payload.findByID({ collection: 'media', id: newAvatar.id });
+    expect((newStill as { id: number }).id).toBe(newAvatar.id);
+
+    const refetched = await payload.findByID({ collection: 'users', id: user.id });
+    const refAvatar = (refetched as { avatar: number | { id: number } | null }).avatar;
+    const refAvatarId =
+      typeof refAvatar === 'object' && refAvatar ? refAvatar.id : refAvatar;
+    expect(refAvatarId).toBe(newAvatar.id);
+
+    vi.doUnmock('next/headers');
+  });
+});

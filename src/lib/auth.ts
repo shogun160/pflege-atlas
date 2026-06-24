@@ -368,6 +368,23 @@ export async function updateOwnProfileAction(
       return { ok: true };
     }
     const payload = await payloadInstance();
+
+    // Avatar-Hard-Delete bei Removal (id → null) oder Replacement (oldId → newId).
+    // Vor dem update lesen, damit wir den alten Wert kennen. Helper schluckt Fehler.
+    if (data.avatar !== undefined) {
+      const current = await payload.findByID({ collection: 'users', id: session.id, depth: 0 });
+      const currentAvatar = (current as { avatar?: number | { id: number } | null }).avatar;
+      const oldAvatarId =
+        typeof currentAvatar === 'object' && currentAvatar ? currentAvatar.id : (currentAvatar ?? null);
+      const newAvatarId = data.avatar ?? null;
+      if (oldAvatarId !== null && oldAvatarId !== newAvatarId) {
+        await hardDeleteAvatar(payload, oldAvatarId, {
+          userId: session.id,
+          trigger: 'profile-update',
+        });
+      }
+    }
+
     await payload.update({
       collection: 'users',
       id: session.id,
