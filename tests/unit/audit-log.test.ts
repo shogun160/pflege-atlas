@@ -62,7 +62,7 @@ describe('audit-log helper', () => {
       const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       await expect(
-        writeAuditLog(mockPayload as never, { eventType: 'login.success', actorUserId: 1 }),
+        writeAuditLog(mockPayload as never, { eventType: 'login.success', actor: 1 }),
       ).resolves.toBeUndefined();
 
       expect(errSpy).toHaveBeenCalledWith(
@@ -79,7 +79,7 @@ describe('audit-log helper', () => {
 
       await writeAuditLog(mockPayload as never, {
         eventType: 'login.success',
-        actorUserId: 42,
+        actor: 42,
         actorEmail: 'a@b.c',
         loginContext: { ip: '1.2.3.4', userAgent: 'x'.repeat(250) },
       });
@@ -88,7 +88,7 @@ describe('audit-log helper', () => {
         collection: 'audit-logs',
         data: expect.objectContaining({
           eventType: 'login.success',
-          actorUserId: 42,
+          actor: 42,
           actorEmail: 'a@b.c',
           ipHash: expect.stringMatching(/^[0-9a-f]{64}$/),
           userAgent: 'x'.repeat(200),
@@ -104,8 +104,8 @@ describe('audit-log helper', () => {
 
       await writeAuditLog(mockPayload as never, {
         eventType: 'role.change',
-        actorUserId: 1,
-        subjectUserId: 2,
+        actor: 1,
+        subject: 2,
         metadata: { oldRole: 'reviewer', newRole: 'editor' },
       });
 

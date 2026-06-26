@@ -8,14 +8,20 @@ import { MigrateUpArgs, MigrateDownArgs, sql } from '@payloadcms/db-postgres'
  * Schema-Entscheidungen:
  *   - Integer-PK (Payload-Default mit @payloadcms/db-postgres), KEINE UUIDs
  *     — projektweit konsistent (siehe `20260605_140707_init.ts`).
- *   - actor_user_id / subject_user_id sind nullable INT mit FK auf users.id
+ *   - actor_id / subject_id sind nullable INT mit FK auf users.id
  *     und ON DELETE SET NULL. Wir wollen Audit-Records auch nach User-Löschung
  *     erhalten (subject_email + actor_email bleiben als Fallback-Identität).
+ *   - Field-Naming-Plan-Deviation: Spec/Plan nannten die Felder `actorUserId`/
+ *     `subjectUserId`. Payload-Drizzle hängt für `relationship`-Felder
+ *     automatisch ein `_id`-Suffix an den snake-case-Feldnamen — das hätte
+ *     DB-Spalten `actor_user_id_id` ergeben (doppeltes _id). Verkürzt auf
+ *     `actor`/`subject` in der Collection → DB-Spalten `actor_id`/`subject_id`,
+ *     konsistent mit `invited_by_id`/`current_reviewer_id` aus V1.6/V1.7.
  *   - 4 explizite Indizes für die Query-Patterns aus dem Spec:
- *       * created_at        → Cron-Cleanup (DELETE WHERE created_at < now()-90d)
- *       * event_type        → Filter im Admin-List-View
- *       * actor_user_id     → "Was hat User X getan"
- *       * subject_user_id   → "Was wurde User Y angetan"
+ *       * created_at  → Cron-Cleanup (DELETE WHERE created_at < now()-90d)
+ *       * event_type  → Filter im Admin-List-View
+ *       * actor_id    → "Was hat User X getan"
+ *       * subject_id  → "Was wurde User Y angetan"
  *   - FK-Naming folgt V1.7.1-Pattern: <table>_<col>_<refTable>_<refCol>_fk
  *     (siehe `20260623_100000_fk_naming_consistency.ts`). Drizzle erwartet
  *     genau diese Form, sonst Schema-Drift im Vercel-Build.
@@ -34,9 +40,9 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
     CREATE TABLE public.audit_logs (
         id integer NOT NULL,
         event_type character varying NOT NULL,
-        actor_user_id integer,
+        actor_id integer,
         actor_email character varying,
-        subject_user_id integer,
+        subject_id integer,
         subject_email character varying,
         metadata jsonb,
         ip_hash character varying(64),
@@ -63,16 +69,16 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
     CREATE INDEX audit_logs_created_at_idx       ON public.audit_logs USING btree (created_at);
     CREATE INDEX audit_logs_updated_at_idx       ON public.audit_logs USING btree (updated_at);
     CREATE INDEX audit_logs_event_type_idx       ON public.audit_logs USING btree (event_type);
-    CREATE INDEX audit_logs_actor_user_id_idx    ON public.audit_logs USING btree (actor_user_id);
-    CREATE INDEX audit_logs_subject_user_id_idx  ON public.audit_logs USING btree (subject_user_id);
+    CREATE INDEX audit_logs_actor_id_idx    ON public.audit_logs USING btree (actor_id);
+    CREATE INDEX audit_logs_subject_id_idx  ON public.audit_logs USING btree (subject_id);
 
     ALTER TABLE ONLY public.audit_logs
-        ADD CONSTRAINT audit_logs_actor_user_id_users_id_fk
-        FOREIGN KEY (actor_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+        ADD CONSTRAINT audit_logs_actor_id_users_id_fk
+        FOREIGN KEY (actor_id) REFERENCES public.users(id) ON DELETE SET NULL;
 
     ALTER TABLE ONLY public.audit_logs
-        ADD CONSTRAINT audit_logs_subject_user_id_users_id_fk
-        FOREIGN KEY (subject_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+        ADD CONSTRAINT audit_logs_subject_id_users_id_fk
+        FOREIGN KEY (subject_id) REFERENCES public.users(id) ON DELETE SET NULL;
 
     -- Payload-Lock-Mechanik: payload_locked_documents_rels.audit_logs_id
     -- Ohne diese Spalte würden Admin-Edit-Locks (die Payload für alle Collections

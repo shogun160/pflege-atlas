@@ -21,9 +21,13 @@ export type LoginContext = { ip: string | null; userAgent: string | null };
 
 export type AuditEventInput = {
   eventType: AuditEventType;
-  actorUserId?: number | null;
+  /** users.id of the actor (who triggered the action). null for system events or unknown logins. */
+  actor?: number | null;
+  /** Email snapshot of the actor at event time — anonymization-resistant. */
   actorEmail?: string | null;
-  subjectUserId?: number | null;
+  /** users.id of the subject (target of the action). null for system events or events without a target. */
+  subject?: number | null;
+  /** Email snapshot of the subject at event time — anonymization-resistant. */
   subjectEmail?: string | null;
   metadata?: Record<string, unknown> | null;
   loginContext?: LoginContext;
@@ -58,9 +62,9 @@ export async function writeAuditLog(payload: Payload, input: AuditEventInput): P
     const ipHashRaw = input.loginContext?.ip ? hashIp(input.loginContext.ip) : '';
     const data = {
       eventType: input.eventType,
-      actorUserId: input.actorUserId ?? null,
+      actor: input.actor ?? null,
       actorEmail: input.actorEmail ?? null,
-      subjectUserId: input.subjectUserId ?? null,
+      subject: input.subject ?? null,
       subjectEmail: input.subjectEmail ?? null,
       metadata: input.metadata ?? null,
       ipHash: ipHashRaw || null,

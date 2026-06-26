@@ -455,9 +455,9 @@ export interface Submission {
 export interface AuditLog {
   id: number;
   eventType: string;
-  actorUserId?: (number | null) | User;
+  actor?: (number | null) | User;
   actorEmail?: string | null;
-  subjectUserId?: (number | null) | User;
+  subject?: (number | null) | User;
   subjectEmail?: string | null;
   metadata?:
     | {
@@ -674,9 +674,9 @@ export interface MediaSelect<T extends boolean = true> {
  */
 export interface AuditLogsSelect<T extends boolean = true> {
   eventType?: T;
-  actorUserId?: T;
+  actor?: T;
   actorEmail?: T;
-  subjectUserId?: T;
+  subject?: T;
   subjectEmail?: T;
   metadata?: T;
   ipHash?: T;
