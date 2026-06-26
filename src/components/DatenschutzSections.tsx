@@ -107,6 +107,43 @@ export function DatenschutzSections() {
       </section>
 
       <section>
+        <h2>Sicherheits- und Kontoverwaltungs-Protokoll</h2>
+        <p>
+          <strong>Was wir bei Anmeldevorgängen protokollieren:</strong> Zeitpunkt,
+          Erfolg oder Fehlschlag (mit Grund-Kategorie wie „Passwort falsch{'"'}
+          oder „Konto deaktiviert{'"'}), die eingegebene E-Mail-Adresse (auch
+          wenn kein Konto mit dieser Adresse existiert), eine pseudonymisierte
+          Form Ihrer IP-Adresse (SHA-256-Hash mit serverseitigem Geheim&shy;schlüssel —
+          nicht zurückrechenbar) sowie den übertragenen Browser-Kennzeichner
+          (User-Agent).
+        </p>
+        <p>
+          <strong>Was wir bei kontoverwaltenden Aktionen protokollieren:</strong>{' '}
+          Bei Rollen&shy;änderungen, Konto&shy;deaktivierungen, Konto-Löschvorgängen,
+          versendeten und angenommenen Einladungen sowie Passwort-Zurücksetzungen
+          halten wir fest, welcher Account die Aktion ausgelöst hat und welcher
+          Account betroffen war.
+        </p>
+        <p>
+          <strong>Aufbewahrung und Rechtsgrundlage:</strong> Diese Protokoll-
+          Einträge werden 90 Tage gespeichert und anschließend täglich automatisch
+          gelöscht. Rechtsgrundlage ist unser berechtigtes Interesse an der
+          Abwehr unbefugter Zugriffe und der Nachweisbarkeit kontoverwaltender
+          Vorgänge (Art. 6 Abs. 1 lit. f DSGVO; Art. 5 Abs. 2 DSGVO).
+        </p>
+        <p>
+          <strong>Hinweis zur Konto-Löschung:</strong> Wenn Sie Ihr Konto
+          löschen, werden Ihre personen&shy;bezogenen Daten in den Haupt&shy;datensätzen
+          anonymisiert. E-Mail-Schnappschüsse, die zum Zeitpunkt eines Protokoll-
+          Eintrags gespeichert wurden, bleiben in der Protokoll-Tabelle für die
+          verbleibende Restdauer (höchstens 90 Tage ab Eintrags-Zeitpunkt)
+          erhalten. Diese Ausnahme stützt sich auf Art. 17 Abs. 3 lit. b DSGVO
+          (Erfüllung rechtlicher Aufzeichnungs&shy;pflichten zur Sicherheit der
+          Verarbeitung).
+        </p>
+      </section>
+
+      <section>
         <h2>Aufbewahrungsfristen</h2>
         <table>
           <thead>
@@ -118,6 +155,7 @@ export function DatenschutzSections() {
             <tr><td>Abgelehnte Beiträge</td><td><strong>30 Tage</strong>, danach automatische Löschung</td></tr>
             <tr><td>Aktive Konten</td><td>bis zur Konto-Löschung durch Nutzer:in</td></tr>
             <tr><td>Gelöschte Konten (anonymisiert)</td><td>dauerhaft (Lizenz-Hinweis)</td></tr>
+            <tr><td>Sicherheits- und Kontoverwaltungs-Protokoll</td><td><strong>90 Tage</strong>, danach automatische Löschung</td></tr>
             <tr><td>Vercel-Server-Logs</td><td>1 Stunde</td></tr>
             <tr><td>Neon-Datenbank-Sicherungen</td><td>7 Tage Point-in-Time</td></tr>
             <tr><td>Resend-Mail-Logs</td><td>30 Tage</td></tr>

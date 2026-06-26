@@ -66,8 +66,10 @@ Stufen sind möglich:
 - Bei Komplexität / hohem Aufwand: +2 Monate, **muss aber innerhalb
   des ersten Monats schriftlich mit Begründung an User mitgeteilt**
   werden.
-- Status der Anfrage protokollieren (bis Sub-C3 Audit-Log existiert:
-  handschriftlich in 1Password-Vault unter „DSGVO-Anfragen").
+- Status der Anfrage protokollieren — Sub-C3-Audit-Log nimmt das automatisch
+  für Stufe-A-Anonymisierungen (Script schreibt `account.erasure.runbook` mit
+  `metadata.stage='anonymize'`). Für Stufe-B/C-Hard-Delete siehe Section 6
+  „Vor dem psql-DELETE" — Admin setzt vorher manuell einen Audit-Eintrag.
 
 ## 5. Stufe A — Anonymisierung via Script
 
@@ -88,8 +90,22 @@ Das Skript:
 5. Druckt Audit-Trail in stdout. **Diesen Output kopieren** und in
    die Bestätigungs-Mail an User aufnehmen + im 1Password-Vault
    archivieren.
+6. **Sub-C3-Audit-Log:** Skript schreibt zusätzlich einen Eintrag
+   `account.erasure.runbook` mit `metadata.stage='anonymize'`,
+   `metadata.method='runbook_script'`, `subject=<user-id>`, `subjectEmail=<original>`.
+   Bleibt 90 Tage in `/admin/collections/audit-logs`. Doppelte Sicherung
+   (stdout + DB) ist gewollt.
 
 ## 6. Stufe B/C — Manuelles Hard-Delete
+
+**Vor dem psql-DELETE: Audit-Eintrag setzen.** Stufe B/C läuft außerhalb der App
+und schreibt KEINEN automatischen Audit-Trail. Der ausführende Admin setzt vorher
+manuell einen `account.erasure.runbook`-Eintrag mit `metadata.stage='hard_delete'`,
+`metadata.method='manual_psql'`. Siehe `docs/legal/audit-log-policy.md`
+Section „Hard-Delete-Sonderfall" für das Snippet. **Reihenfolge wichtig:** Audit
+zuerst (solange User-Row noch da ist, kann `subject` gesetzt werden); danach psql-
+DELETE; durch `ON DELETE SET NULL` wird `subject` automatisch null, aber der
+Email-Snapshot überlebt.
 
 **Vorbereitung:**
 - Backup-Hinweis: Neon Point-in-Time-Recovery deckt 7 Tage ab. Falls
