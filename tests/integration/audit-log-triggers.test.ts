@@ -386,3 +386,70 @@ describe('audit-log triggers — users.afterChange', () => {
     expect(audit).toBeNull();
   });
 });
+
+describe('audit-log trigger — account.soft_delete.self', () => {
+  let payload: Awaited<ReturnType<typeof getPayload>>;
+
+  beforeEach(async () => {
+    payload = await getPayload({ config });
+    await (payload.db as { drizzle: { execute: (sql: unknown) => Promise<unknown> } })
+      .drizzle.execute('DELETE FROM audit_logs');
+  });
+
+  it('writes account.soft_delete.self when performSelfSoftDelete is called', async () => {
+    const user = await payload.create({
+      collection: 'users',
+      data: {
+        email: 'self-delete-' + Date.now() + '@test.local',
+        password: 'TestPass123!',
+        displayName: 'SelfDelete',
+        role: 'contributor',
+      } as never,
+    });
+
+    const { performSelfSoftDelete } = await import('@/lib/auth');
+    await performSelfSoftDelete(payload, user.id as number, (user as { email: string }).email);
+
+    const res = await payload.find({
+      collection: 'audit-logs',
+      where: { eventType: { equals: 'account.soft_delete.self' } },
+      sort: '-createdAt',
+      limit: 1,
+      depth: 0,
+    });
+    const audit = res.docs[0] as null | {
+      actor: number | null;
+      actorEmail: string | null;
+      subject: number | null;
+      subjectEmail: string | null;
+    };
+    expect(audit).toBeTruthy();
+    expect(audit!.actor).toBe(user.id);
+    expect(audit!.subject).toBe(user.id);
+    expect(audit!.actorEmail).toMatch(/^self-delete-/);
+    expect(audit!.subjectEmail).toMatch(/^self-delete-/);
+  });
+
+  it('anonymizes the user record via anonymizeUserPatch', async () => {
+    const user = await payload.create({
+      collection: 'users',
+      data: {
+        email: 'self-delete-anon-' + Date.now() + '@test.local',
+        password: 'TestPass123!',
+        displayName: 'AnonMe',
+        role: 'contributor',
+      } as never,
+    });
+
+    const { performSelfSoftDelete } = await import('@/lib/auth');
+    await performSelfSoftDelete(payload, user.id as number, (user as { email: string }).email);
+
+    // Verify the user record was anonymized (email rewritten to deleted-{id}@…)
+    const after = await payload.findByID({
+      collection: 'users',
+      id: user.id,
+      overrideAccess: true,
+    });
+    expect((after as { email: string }).email).toMatch(/^deleted-/);
+  });
+});

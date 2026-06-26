@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { getPayload, LockedAuth } from 'payload';
+import { getPayload, LockedAuth, type Payload } from 'payload';
 import config from '@/payload.config';
 import { hasPermission, type Action, type Resource, type Role } from './auth-permissions';
 import { generateToken, INVITE_EXPIRY_MS, isTokenValid } from './auth-tokens';
@@ -522,17 +522,41 @@ export async function deleteOwnAccountAction(
       trigger: 'account-delete',
     });
 
-    const patch = anonymizeUserPatch();
-    await payload.update({
-      collection: 'users',
-      id: session.id,
-      data: patch as never,
-    });
+    await performSelfSoftDelete(payload, session.id, session.email);
     await clearAuthCookie();
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : 'Delete failed.' };
   }
+}
+
+/**
+ * Pure DB-operation: anonymizes a user record and writes the audit row.
+ * Extracted from deleteOwnAccountAction so it can be tested without
+ * next/headers / cookie context.
+ *
+ * Avatar-hard-delete (Sub-C2) is NOT called here — keep that in the
+ * action-layer because hardDeleteAvatar reads payload state and needs
+ * the prior avatar id, which the action already has.
+ */
+export async function performSelfSoftDelete(
+  payload: Payload,
+  userId: number,
+  userEmail: string,
+): Promise<void> {
+  await payload.update({
+    collection: 'users',
+    id: userId,
+    data: anonymizeUserPatch() as never,
+    overrideAccess: true,
+  });
+  await writeAuditLog(payload, {
+    eventType: 'account.soft_delete.self',
+    actor: userId,
+    actorEmail: userEmail,
+    subject: userId,
+    subjectEmail: userEmail,
+  });
 }
 
 export async function exportOwnDataAction(): Promise<{ ok: boolean; json?: string; error?: string }> {
