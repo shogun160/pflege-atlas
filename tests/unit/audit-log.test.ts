@@ -139,6 +139,20 @@ describe('audit-log helper', () => {
       const req = new Request('http://test', { headers: { 'user-agent': 'UA' } });
       expect(extractLoginContext(req)).toEqual({ ip: null, userAgent: 'UA' });
     });
+
+    it('falls through to vercel header when x-forwarded-for has leading empty entry', () => {
+      const req = new Request('http://test', {
+        headers: { 'x-forwarded-for': ', 1.2.3.4', 'x-vercel-forwarded-for': '9.9.9.9' },
+      });
+      expect(extractLoginContext(req).ip).toBe('9.9.9.9');
+    });
+
+    it('parses IPv6 from x-forwarded-for', () => {
+      const req = new Request('http://test', {
+        headers: { 'x-forwarded-for': '2001:db8::1, 5.6.7.8' },
+      });
+      expect(extractLoginContext(req).ip).toBe('2001:db8::1');
+    });
   });
 
   describe('AUDIT_EVENT_TYPES', () => {
