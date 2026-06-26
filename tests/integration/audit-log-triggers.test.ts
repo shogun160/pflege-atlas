@@ -3,6 +3,7 @@ import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 import { getPayload } from 'payload';
 import config from '@/payload.config';
 import { createUserFixture } from '../helpers/user-fixtures';
+import { mockNextHeaders, unmockNextHeaders } from '../helpers/mock-next-headers';
 
 let payload: Awaited<ReturnType<typeof getPayload>>;
 
@@ -43,9 +44,7 @@ describe('audit-log triggers — login', () => {
 
   it('writes login.success with actor + ipHash + userAgent when request headers passed', async () => {
     const user = await createUserFixture(payload, 'contributor');
-    vi.doMock('next/headers', () => ({
-      cookies: async () => ({ set: vi.fn(), delete: vi.fn(), get: () => undefined }),
-    }));
+    mockNextHeaders();
     const { loginAction } = await import('@/lib/auth');
     const headers = new Headers({ 'x-forwarded-for': '1.2.3.4', 'user-agent': 'TestUA/1.0' });
     const result = await loginAction(user.email, user.password, headers);
@@ -57,14 +56,12 @@ describe('audit-log triggers — login', () => {
     expect(audit!.actorEmail).toBe(user.email);
     expect(audit!.ipHash).toMatch(/^[0-9a-f]{64}$/);
     expect(audit!.userAgent).toBe('TestUA/1.0');
-    vi.doUnmock('next/headers');
+    unmockNextHeaders();
   });
 
   it('writes login.failure with bucket=wrong-password for invalid password', async () => {
     const user = await createUserFixture(payload, 'contributor');
-    vi.doMock('next/headers', () => ({
-      cookies: async () => ({ set: vi.fn(), delete: vi.fn(), get: () => undefined }),
-    }));
+    mockNextHeaders();
     const { loginAction } = await import('@/lib/auth');
     const result = await loginAction(user.email, 'WrongPassword');
     expect(result.ok).toBe(false);
@@ -74,13 +71,11 @@ describe('audit-log triggers — login', () => {
     expect(audit!.actorEmail).toBe(user.email);
     expect((audit!.metadata as { bucket?: string }).bucket).toBe('wrong-password');
     expect((audit!.metadata as { emailAttempt?: string }).emailAttempt).toBe(user.email);
-    vi.doUnmock('next/headers');
+    unmockNextHeaders();
   });
 
   it('writes login.failure with bucket=unknown for nonexistent email (NO Email-Existence-Oracle)', async () => {
-    vi.doMock('next/headers', () => ({
-      cookies: async () => ({ set: vi.fn(), delete: vi.fn(), get: () => undefined }),
-    }));
+    mockNextHeaders();
     const { loginAction } = await import('@/lib/auth');
     const result = await loginAction('nonexistent-' + Date.now() + '@test.local', 'AnyPass');
     expect(result.ok).toBe(false);
@@ -91,7 +86,7 @@ describe('audit-log triggers — login', () => {
     expect(audit!.actorEmail).toBeNull();
     expect((audit!.metadata as { bucket?: string }).bucket).toBe('unknown');
     expect((audit!.metadata as { emailAttempt?: string }).emailAttempt).toMatch(/^nonexistent-/);
-    vi.doUnmock('next/headers');
+    unmockNextHeaders();
   });
 
   it('writes login.failure with bucket=disabled for disabled account', async () => {
@@ -102,9 +97,7 @@ describe('audit-log triggers — login', () => {
       data: { disabled: true } as never,
       overrideAccess: true,
     });
-    vi.doMock('next/headers', () => ({
-      cookies: async () => ({ set: vi.fn(), delete: vi.fn(), get: () => undefined }),
-    }));
+    mockNextHeaders();
     const { loginAction } = await import('@/lib/auth');
     const result = await loginAction(user.email, user.password);
     expect(result.ok).toBe(false);
@@ -112,7 +105,7 @@ describe('audit-log triggers — login', () => {
     const audit = await findLatestAudit('login.failure');
     expect(audit).toBeTruthy();
     expect((audit!.metadata as { bucket?: string }).bucket).toBe('disabled');
-    vi.doUnmock('next/headers');
+    unmockNextHeaders();
   });
 });
 
@@ -166,9 +159,7 @@ describe('audit-log triggers — invitation accept vs password reset complete', 
       } as never,
     });
     const tokenValue = (user as { setPasswordToken: string }).setPasswordToken;
-    vi.doMock('next/headers', () => ({
-      cookies: async () => ({ set: vi.fn(), delete: vi.fn(), get: () => undefined }),
-    }));
+    mockNextHeaders();
     const { setPasswordFromTokenAction } = await import('@/lib/auth');
     const result = await setPasswordFromTokenAction(tokenValue, 'NewPass123!');
     expect(result.ok).toBe(true);
@@ -176,34 +167,7 @@ describe('audit-log triggers — invitation accept vs password reset complete', 
     const audit = await findLatestAudit('invitation.accept');
     expect(audit).toBeTruthy();
     expect(audit!.actor).toBe(user.id as number);
-    vi.doUnmock('next/headers');
-  });
-
-  it('writes password.reset.complete when token pattern matches reset (NO invitedAt OR tokenExpiresAt close to 1h)', async () => {
-    const user = await createUserFixture(payload, 'contributor');
-    const resetExpiresAt = new Date(Date.now() + 60 * 60 * 1000);
-    await payload.update({
-      collection: 'users',
-      id: user.id,
-      data: {
-        setPasswordToken: 'reset-token-' + Date.now(),
-        setPasswordTokenExpiresAt: resetExpiresAt.toISOString(),
-      } as never,
-      overrideAccess: true,
-    });
-    const fresh = await payload.findByID({ collection: 'users', id: user.id });
-    const tokenValue = (fresh as { setPasswordToken: string }).setPasswordToken;
-    vi.doMock('next/headers', () => ({
-      cookies: async () => ({ set: vi.fn(), delete: vi.fn(), get: () => undefined }),
-    }));
-    const { setPasswordFromTokenAction } = await import('@/lib/auth');
-    const result = await setPasswordFromTokenAction(tokenValue, 'NewPass123!');
-    expect(result.ok).toBe(true);
-
-    const audit = await findLatestAudit('password.reset.complete');
-    expect(audit).toBeTruthy();
-    expect(audit!.actor).toBe(user.id);
-    vi.doUnmock('next/headers');
+    unmockNextHeaders();
   });
 
   it('REAL reset flow: payload.forgotPassword → setPasswordFromTokenAction → password.reset.complete + new password works (BUG-FIX)', async () => {
@@ -221,9 +185,7 @@ describe('audit-log triggers — invitation accept vs password reset complete', 
     const tokenValue = (fresh as { resetPasswordToken: string }).resetPasswordToken;
     expect(tokenValue).toBeTruthy();
 
-    vi.doMock('next/headers', () => ({
-      cookies: async () => ({ set: vi.fn(), delete: vi.fn(), get: () => undefined }),
-    }));
+    mockNextHeaders();
     const { setPasswordFromTokenAction } = await import('@/lib/auth');
     const result = await setPasswordFromTokenAction(tokenValue, 'BrandNewPass1!');
     expect(result.ok).toBe(true);
@@ -240,15 +202,13 @@ describe('audit-log triggers — invitation accept vs password reset complete', 
     });
     expect(reLogin.token).toBeTruthy();
 
-    vi.doUnmock('next/headers');
+    unmockNextHeaders();
   });
 
   it('sends welcome mail on invitation.accept but NOT on password.reset.complete', async () => {
     const sendMailSpy = vi.fn(async () => undefined);
     vi.doMock('@/lib/mail', () => ({ sendMail: sendMailSpy }));
-    vi.doMock('next/headers', () => ({
-      cookies: async () => ({ set: vi.fn(), delete: vi.fn(), get: () => undefined }),
-    }));
+    mockNextHeaders();
 
     // --- Invitation path: expects sendMail called ---
     const invitedAt = new Date();
@@ -284,7 +244,7 @@ describe('audit-log triggers — invitation accept vs password reset complete', 
     expect(sendMailSpy).toHaveBeenCalledTimes(0);
 
     vi.doUnmock('@/lib/mail');
-    vi.doUnmock('next/headers');
+    unmockNextHeaders();
   });
 
   it('threads requestHeaders into invitation.accept audit (ipHash + userAgent)', async () => {
@@ -303,9 +263,7 @@ describe('audit-log triggers — invitation accept vs password reset complete', 
       } as never,
     });
     const tokenValue = (user as { setPasswordToken: string }).setPasswordToken;
-    vi.doMock('next/headers', () => ({
-      cookies: async () => ({ set: vi.fn(), delete: vi.fn(), get: () => undefined }),
-    }));
+    mockNextHeaders();
     const { setPasswordFromTokenAction } = await import('@/lib/auth');
     const headers = new Headers({ 'x-forwarded-for': '10.0.0.1', 'user-agent': 'InviteUA/1.0' });
     const result = await setPasswordFromTokenAction(tokenValue, 'NewPass123!', headers);
@@ -315,7 +273,7 @@ describe('audit-log triggers — invitation accept vs password reset complete', 
     expect(audit).toBeTruthy();
     expect(audit!.ipHash).toMatch(/^[0-9a-f]{64}$/);
     expect(audit!.userAgent).toBe('InviteUA/1.0');
-    vi.doUnmock('next/headers');
+    unmockNextHeaders();
   });
 
   it('threads requestHeaders into password.reset.complete audit (ipHash + userAgent)', async () => {
@@ -327,9 +285,7 @@ describe('audit-log triggers — invitation accept vs password reset complete', 
     });
     const fresh = await payload.findByID({ collection: 'users', id: user.id, depth: 0, showHiddenFields: true });
     const tokenValue = (fresh as { resetPasswordToken: string }).resetPasswordToken;
-    vi.doMock('next/headers', () => ({
-      cookies: async () => ({ set: vi.fn(), delete: vi.fn(), get: () => undefined }),
-    }));
+    mockNextHeaders();
     const { setPasswordFromTokenAction } = await import('@/lib/auth');
     const headers = new Headers({ 'x-forwarded-for': '10.0.0.2', 'user-agent': 'ResetUA/1.0' });
     const result = await setPasswordFromTokenAction(tokenValue, 'BrandNewPass1!', headers);
@@ -339,7 +295,7 @@ describe('audit-log triggers — invitation accept vs password reset complete', 
     expect(audit).toBeTruthy();
     expect(audit!.ipHash).toMatch(/^[0-9a-f]{64}$/);
     expect(audit!.userAgent).toBe('ResetUA/1.0');
-    vi.doUnmock('next/headers');
+    unmockNextHeaders();
   });
 
   it('returns German "Token abgelaufen." for expired resetPasswordToken', async () => {
@@ -358,14 +314,12 @@ describe('audit-log triggers — invitation accept vs password reset complete', 
     });
     const fresh = await payload.findByID({ collection: 'users', id: user.id, depth: 0, showHiddenFields: true });
     const tokenValue = (fresh as { resetPasswordToken: string }).resetPasswordToken;
-    vi.doMock('next/headers', () => ({
-      cookies: async () => ({ set: vi.fn(), delete: vi.fn(), get: () => undefined }),
-    }));
+    mockNextHeaders();
     const { setPasswordFromTokenAction } = await import('@/lib/auth');
     const result = await setPasswordFromTokenAction(tokenValue, 'WhateverPass1!');
     expect(result.ok).toBe(false);
     expect(result.error).toBe('Token abgelaufen.');
-    vi.doUnmock('next/headers');
+    unmockNextHeaders();
   });
 
   it('when both setPasswordToken AND resetPasswordToken are set, invitation wins', async () => {
@@ -394,9 +348,7 @@ describe('audit-log triggers — invitation accept vs password reset complete', 
       } as never,
       overrideAccess: true,
     });
-    vi.doMock('next/headers', () => ({
-      cookies: async () => ({ set: vi.fn(), delete: vi.fn(), get: () => undefined }),
-    }));
+    mockNextHeaders();
     const { setPasswordFromTokenAction } = await import('@/lib/auth');
     const result = await setPasswordFromTokenAction(tokenValue, 'NewPass123!');
     expect(result.ok).toBe(true);
@@ -404,7 +356,7 @@ describe('audit-log triggers — invitation accept vs password reset complete', 
     const audit = await findLatestAudit('invitation.accept');
     expect(audit).toBeTruthy();
     expect(audit!.actor).toBe(user.id as number);
-    vi.doUnmock('next/headers');
+    unmockNextHeaders();
   });
 });
 

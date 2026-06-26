@@ -3,6 +3,7 @@ import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vite
 import { getPayload } from 'payload';
 import config from '@/payload.config';
 import { generateToken, INVITE_EXPIRY_MS } from '@/lib/auth-tokens';
+import { mockNextHeaders, unmockNextHeaders } from '../helpers/mock-next-headers';
 
 let payload: Awaited<ReturnType<typeof getPayload>>;
 
@@ -31,11 +32,9 @@ async function makeInvitedUser(tokenOverride?: string, expiryMs: number = INVITE
 describe('setPasswordFromTokenAction', () => {
   beforeEach(() => {
     vi.resetModules();
-    vi.doMock('next/headers', () => ({
-      cookies: async () => ({ set: vi.fn(), delete: vi.fn(), get: () => undefined }),
-    }));
+    mockNextHeaders();
   });
-  afterEach(() => vi.doUnmock('next/headers'));
+  afterEach(() => unmockNextHeaders());
 
   it('sets password + clears token + returns login redirect', async () => {
     const { token, email } = await makeInvitedUser();
