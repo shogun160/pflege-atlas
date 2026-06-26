@@ -66,7 +66,8 @@ describe('cleanup-cron route', () => {
     const res = await GET(req);
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toHaveProperty('deletedCount');
+    expect(body).toHaveProperty('submissionsDeleted');
+    expect(body).toHaveProperty('auditDeleted');
   });
 
   it('deletes rejected submissions older than 30 days, keeps others', async () => {
@@ -114,7 +115,7 @@ describe('cleanup-cron route', () => {
     const res = await GET(req);
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.deletedCount).toBe(1);
+    expect(body.submissionsDeleted).toBe(1);
 
     // Verify the right ones survived
     const survivors = await payload.find({ collection: 'submissions', limit: 100 });
@@ -141,10 +142,10 @@ describe('cleanup-cron route', () => {
     });
     const res1 = await GET(req);
     expect(res1.status).toBe(200);
-    expect((await res1.json()).deletedCount).toBe(1);
+    expect((await res1.json()).submissionsDeleted).toBe(1);
 
     const res2 = await GET(req);
     expect(res2.status).toBe(200);
-    expect((await res2.json()).deletedCount).toBe(0);
+    expect((await res2.json()).submissionsDeleted).toBe(0);
   });
 });

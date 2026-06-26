@@ -453,3 +453,50 @@ describe('audit-log trigger — account.soft_delete.self', () => {
     expect((after as { email: string }).email).toMatch(/^deleted-/);
   });
 });
+
+describe('audit-log trigger — cleanup-cron real-DB', () => {
+  it('deletes 91-day-old audit rows and writes the heartbeat meta-event', async () => {
+    const payload = await getPayload({ config });
+    await (payload.db as { drizzle: { execute: (sql: unknown) => Promise<unknown> } })
+      .drizzle.execute('DELETE FROM audit_logs');
+
+    // Seed two rows; one will be aged past the cutoff
+    const old = await payload.create({
+      collection: 'audit-logs',
+      data: { eventType: 'login.success' } as never,
+      overrideAccess: true,
+    });
+    const fresh = await payload.create({
+      collection: 'audit-logs',
+      data: { eventType: 'login.success' } as never,
+      overrideAccess: true,
+    });
+
+    // Raw-SQL time-travel — set the OLD row's created_at to 91 days ago.
+    // Cannot use vi.useFakeTimers() because Postgres now() runs server-side.
+    await (payload.db as { drizzle: { execute: (sql: unknown) => Promise<unknown> } })
+      .drizzle.execute(
+        `UPDATE audit_logs SET created_at = now() - interval '91 days' WHERE id = ${old.id}`,
+      );
+
+    const { cleanupExpiredAuditLogs } = await import('@/lib/audit-log-cleanup');
+    const count = await cleanupExpiredAuditLogs(payload);
+
+    expect(count).toBeGreaterThanOrEqual(1);
+
+    // Fresh entry must still exist
+    const stillThere = await payload.findByID({ collection: 'audit-logs', id: fresh.id });
+    expect(stillThere).toBeTruthy();
+
+    // Heartbeat meta-event must have been written (even on count=0; here count>=1)
+    const meta = await payload.find({
+      collection: 'audit-logs',
+      where: { eventType: { equals: 'audit.cleanup.run' } },
+      sort: '-createdAt',
+      limit: 1,
+    });
+    expect(meta.docs[0]).toBeTruthy();
+    expect((meta.docs[0].metadata as { deletedCount?: number }).deletedCount).toBeGreaterThanOrEqual(1);
+    expect((meta.docs[0].metadata as { retentionDays?: number }).retentionDays).toBe(90);
+  });
+});
