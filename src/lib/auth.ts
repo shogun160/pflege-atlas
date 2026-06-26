@@ -10,6 +10,7 @@ import { renderWelcomeMail } from './mail-templates/welcome';
 import { anonymizeUserPatch } from './user-soft-delete';
 import { shapeExport, findAllForExport, ExportTooLargeError } from './data-export';
 import { hardDeleteAvatar } from './avatar-cleanup';
+import { writeAuditLog, extractLoginContext, type LoginContext } from './audit-log';
 
 export interface Session {
   id: number;
@@ -112,27 +113,75 @@ function redirectForRole(role: Role): string {
   return '/admin';
 }
 
-export async function loginAction(email: string, password: string): Promise<LoginResult> {
+export async function loginAction(
+  email: string,
+  password: string,
+  requestHeaders?: Headers,
+): Promise<LoginResult> {
   'use server';
+  const loginContext: LoginContext = requestHeaders
+    ? extractLoginContext(new Request('http://internal', { headers: requestHeaders }))
+    : { ip: null, userAgent: null };
+
+  const payload = await payloadInstance();
+
+  // Pre-lookup distinguishes unknown vs wrong-password WITHOUT leaking the
+  // distinction to the client (Email-Existence-Oracle defense). The same
+  // lookup also gives us actor + actorEmail for the audit row.
+  const found = await payload.find({
+    collection: 'users',
+    where: { email: { equals: email } },
+    depth: 0,
+    limit: 1,
+  });
+  const existingUser = found.docs[0] as
+    | { id: number; email: string; disabled?: boolean }
+    | undefined;
+
   try {
-    const payload = await payloadInstance();
     const result = await payload.login({
       collection: 'users',
       data: { email, password },
     });
     if (!result.token) {
+      await writeAuditLog(payload, {
+        eventType: 'login.failure',
+        actor: existingUser?.id ?? null,
+        actorEmail: existingUser?.email ?? null,
+        metadata: { bucket: 'wrong-password', emailAttempt: email },
+        loginContext,
+      });
       return { ok: false, error: 'Login fehlgeschlagen.' };
     }
     await setAuthCookie(result.token);
     const role = (result.user as { role?: Role }).role ?? 'contributor';
+    await writeAuditLog(payload, {
+      eventType: 'login.success',
+      actor: existingUser?.id ?? (result.user as { id?: number }).id ?? null,
+      actorEmail: existingUser?.email ?? (result.user as { email?: string }).email ?? email,
+      loginContext,
+    });
     return { ok: true, redirectTo: redirectForRole(role) };
   } catch (err) {
     // Generic message — don't leak whether the email exists, the password
-    // is wrong, or the account is disabled/locked (Payload's underlying
-    // error messages distinguish these; we don't want to forward them).
-    if (process.env.NODE_ENV !== 'test') {
-      console.warn('[auth.loginAction] login rejected', err);
+    // is wrong, or the account is disabled/locked. The audit row captures
+    // the bucket truth server-side; the client never sees the distinction.
+    let bucket: 'wrong-password' | 'disabled' | 'locked' | 'unknown';
+    if (!existingUser) {
+      bucket = 'unknown';
+    } else if (existingUser.disabled) {
+      bucket = 'disabled';
+    } else {
+      const msg = err instanceof Error ? err.message : '';
+      bucket = msg.toLowerCase().includes('locked') ? 'locked' : 'wrong-password';
     }
+    await writeAuditLog(payload, {
+      eventType: 'login.failure',
+      actor: existingUser?.id ?? null,
+      actorEmail: existingUser?.email ?? null,
+      metadata: { bucket, emailAttempt: email },
+      loginContext,
+    });
     return { ok: false, error: 'Login fehlgeschlagen.' };
   }
 }
@@ -220,6 +269,24 @@ export interface SetPasswordResult {
   error?: string;
 }
 
+// Heuristic to distinguish invitation-accept from password-reset-complete
+// without storing an explicit token-kind on the user record. Invitations
+// set `invitedAt` AND a 7-day-expiry token; password-resets set a 1-hour
+// expiry and don't touch `invitedAt`. The 60s tolerance covers
+// invitedAt vs tokenExpiresAt clock-drift inside Payload's create() call.
+const INVITE_EXPIRY_HEURISTIC_MS = 7 * 24 * 60 * 60 * 1000;
+const INVITE_PATTERN_TOLERANCE_MS = 60 * 1000;
+
+function isInvitationAcceptPattern(
+  invitedAt: string | null | undefined,
+  tokenExpiresAt: string | null | undefined,
+): boolean {
+  if (!invitedAt || !tokenExpiresAt) return false;
+  const inv = new Date(invitedAt).getTime();
+  const exp = new Date(tokenExpiresAt).getTime();
+  return Math.abs(exp - (inv + INVITE_EXPIRY_HEURISTIC_MS)) < INVITE_PATTERN_TOLERANCE_MS;
+}
+
 export async function setPasswordFromTokenAction(
   token: string,
   newPassword: string,
@@ -245,10 +312,12 @@ export async function setPasswordFromTokenAction(
     const user = found.docs[0] as {
       id: number; email: string; role?: Role; displayName?: string;
       setPasswordTokenExpiresAt?: string | null;
+      invitedAt?: string | null;
     };
     if (!isTokenValid(user.setPasswordTokenExpiresAt)) {
       return { ok: false, error: 'Token abgelaufen.' };
     }
+    const isInvite = isInvitationAcceptPattern(user.invitedAt, user.setPasswordTokenExpiresAt);
     await payload.update({
       collection: 'users',
       id: user.id,
@@ -257,6 +326,13 @@ export async function setPasswordFromTokenAction(
         setPasswordToken: null,
         setPasswordTokenExpiresAt: null,
       } as never,
+    });
+    await writeAuditLog(payload, {
+      eventType: isInvite ? 'invitation.accept' : 'password.reset.complete',
+      actor: user.id,
+      actorEmail: user.email,
+      subject: user.id,
+      subjectEmail: user.email,
     });
     // Send welcome mail. Failure must NOT block the user from logging in —
     // they just set their password, the account works either way.
@@ -328,8 +404,8 @@ export async function requestPasswordResetAction(email: string): Promise<{ ok: t
   if (!rateLimitOk(email)) {
     return { ok: true };
   }
+  const payload = await payloadInstance();
   try {
-    const payload = await payloadInstance();
     await payload.forgotPassword({
       collection: 'users',
       data: { email },
@@ -337,6 +413,26 @@ export async function requestPasswordResetAction(email: string): Promise<{ ok: t
     });
   } catch {
     // Swallow — anti-enumeration
+  }
+  // Anti-enumeration means the client always sees ok:true, but the audit
+  // row captures truth: subject is set when the user exists, null when ghost.
+  // Forensic value for reset-attack analysis.
+  try {
+    const found = await payload.find({
+      collection: 'users',
+      where: { email: { equals: email } },
+      depth: 0,
+      limit: 1,
+    });
+    const subjectUser = found.docs[0] as { id: number; email: string } | undefined;
+    await writeAuditLog(payload, {
+      eventType: 'password.reset.request',
+      subject: subjectUser?.id ?? null,
+      subjectEmail: subjectUser?.email ?? null,
+      metadata: { emailAttempt: email },
+    });
+  } catch {
+    // Audit failures must never break the anti-enumeration response.
   }
   return { ok: true };
 }
