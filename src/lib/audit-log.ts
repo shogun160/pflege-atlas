@@ -1,5 +1,5 @@
 import { createHash } from 'crypto';
-import type { Payload } from 'payload';
+import type { Payload, PayloadRequest } from 'payload';
 
 export const AUDIT_EVENT_TYPES = [
   'login.success',
@@ -31,6 +31,13 @@ export type AuditEventInput = {
   subjectEmail?: string | null;
   metadata?: Record<string, unknown> | null;
   loginContext?: LoginContext;
+  /**
+   * Optional Payload request to join an outer transaction.
+   * REQUIRED when called from a collection hook (e.g. users.afterChange) so the
+   * audit-log insert sees the in-flight row that triggered the hook — otherwise
+   * the subject FK constraint will fire before the parent row commits.
+   */
+  req?: PayloadRequest;
 };
 
 export function hashIp(ip: string): string {
@@ -74,6 +81,7 @@ export async function writeAuditLog(payload: Payload, input: AuditEventInput): P
       collection: 'audit-logs',
       data: data as never,
       overrideAccess: true,
+      ...(input.req ? { req: input.req } : {}),
     });
   } catch (err) {
     console.error('[audit] write failed', { eventType: input.eventType, err });

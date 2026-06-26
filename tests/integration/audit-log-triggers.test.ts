@@ -206,3 +206,183 @@ describe('audit-log triggers — invitation accept vs password reset complete', 
     vi.doUnmock('next/headers');
   });
 });
+
+describe('audit-log triggers — users.afterChange', () => {
+  let admin: { id: number; email: string; password: string; role: 'admin' };
+
+  beforeEach(async () => {
+    await clearAuditLogs();
+    const adminDoc = await payload.create({
+      collection: 'users',
+      data: {
+        email: 'admin-t5-' + Date.now() + '-' + Math.random() + '@test.local',
+        password: 'AdminPass123!',
+        displayName: 'Admin T5',
+        role: 'admin',
+      } as never,
+    });
+    admin = {
+      id: adminDoc.id as number,
+      email: (adminDoc as { email: string }).email,
+      password: 'AdminPass123!',
+      role: 'admin',
+    };
+    // Admin creation doesn't carry setPasswordToken+invitedAt, so no invitation.create row.
+    // Still, clear defensively to keep findLatestAudit assertions deterministic.
+    await clearAuditLogs();
+  });
+
+  it('writes role.change when role field changes via payload.update by admin', async () => {
+    const user = await payload.create({
+      collection: 'users',
+      data: {
+        email: 'rc-' + Date.now() + '@test.local',
+        password: 'TestPass123!',
+        displayName: 'RC',
+        role: 'reviewer',
+      } as never,
+    });
+
+    await payload.update({
+      collection: 'users',
+      id: user.id,
+      data: { role: 'editor' } as never,
+      user: admin as never,
+      overrideAccess: true,
+    });
+
+    const audit = await findLatestAudit('role.change');
+    expect(audit).toBeTruthy();
+    expect(audit!.actor).toBe(admin.id);
+    expect(audit!.subject).toBe(user.id);
+    expect((audit!.metadata as { oldRole?: string }).oldRole).toBe('reviewer');
+    expect((audit!.metadata as { newRole?: string }).newRole).toBe('editor');
+  });
+
+  it('writes account.disable when disabled flips false → true', async () => {
+    const user = await payload.create({
+      collection: 'users',
+      data: {
+        email: 'disable-' + Date.now() + '@test.local',
+        password: 'TestPass123!',
+        displayName: 'D',
+        role: 'contributor',
+        disabled: false,
+      } as never,
+    });
+
+    await payload.update({
+      collection: 'users',
+      id: user.id,
+      data: { disabled: true } as never,
+      user: admin as never,
+      overrideAccess: true,
+    });
+
+    const audit = await findLatestAudit('account.disable');
+    expect(audit).toBeTruthy();
+    expect(audit!.actor).toBe(admin.id);
+    expect(audit!.subject).toBe(user.id);
+  });
+
+  it('does NOT write account.disable when disabled remains true (idempotent update)', async () => {
+    const user = await payload.create({
+      collection: 'users',
+      data: {
+        email: 'disable-idemp-' + Date.now() + '@test.local',
+        password: 'TestPass123!',
+        displayName: 'DI',
+        role: 'contributor',
+        disabled: true,
+      } as never,
+    });
+
+    await payload.update({
+      collection: 'users',
+      id: user.id,
+      data: { displayName: 'DI-renamed', disabled: true } as never,
+      user: admin as never,
+      overrideAccess: true,
+    });
+
+    const audit = await findLatestAudit('account.disable');
+    expect(audit).toBeNull();
+  });
+
+  it('writes invitation.create when new user is created with setPasswordToken + invitedAt', async () => {
+    const newUser = await payload.create({
+      collection: 'users',
+      data: {
+        email: 'invitee-t5-' + Date.now() + '@test.local',
+        password: 'temp-' + Math.random(),
+        displayName: 'Invitee T5',
+        role: 'reviewer',
+        setPasswordToken: 'inv-token-t5-' + Date.now(),
+        setPasswordTokenExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        invitedBy: admin.id,
+        invitedAt: new Date().toISOString(),
+      } as never,
+      user: admin as never,
+      overrideAccess: true,
+    });
+
+    const audit = await findLatestAudit('invitation.create');
+    expect(audit).toBeTruthy();
+    expect(audit!.actor).toBe(admin.id);
+    expect(audit!.subject).toBe(newUser.id);
+    expect((audit!.metadata as { assignedRole?: string }).assignedRole).toBe('reviewer');
+  });
+
+  it('writes email.change.admin when admin changes another users email', async () => {
+    const user = await payload.create({
+      collection: 'users',
+      data: {
+        email: 'email-old-' + Date.now() + '@test.local',
+        password: 'TestPass123!',
+        displayName: 'EC',
+        role: 'contributor',
+      } as never,
+    });
+    const newEmail = 'email-new-' + Date.now() + '@test.local';
+
+    await payload.update({
+      collection: 'users',
+      id: user.id,
+      data: { email: newEmail } as never,
+      user: admin as never,
+      overrideAccess: true,
+    });
+
+    const audit = await findLatestAudit('email.change.admin');
+    expect(audit).toBeTruthy();
+    expect(audit!.actor).toBe(admin.id);
+    expect(audit!.subject).toBe(user.id);
+    expect((audit!.metadata as { oldEmail?: string }).oldEmail).toMatch(/^email-old-/);
+    expect((audit!.metadata as { newEmail?: string }).newEmail).toBe(newEmail);
+  });
+
+  it('does NOT write email.change.admin when user changes own email (self-edit)', async () => {
+    // Per V1.6 spec, self email-change is disabled — but the hook condition
+    // still needs to defend in case that ever loosens.
+    const user = await payload.create({
+      collection: 'users',
+      data: {
+        email: 'self-edit-' + Date.now() + '@test.local',
+        password: 'TestPass123!',
+        displayName: 'SE',
+        role: 'contributor',
+      } as never,
+    });
+
+    await payload.update({
+      collection: 'users',
+      id: user.id,
+      data: { email: 'self-new-' + Date.now() + '@test.local' } as never,
+      user: { id: user.id, email: user.email, role: 'contributor' } as never,
+      overrideAccess: true,
+    });
+
+    const audit = await findLatestAudit('email.change.admin');
+    expect(audit).toBeNull();
+  });
+});
