@@ -205,6 +205,43 @@ describe('audit-log triggers — invitation accept vs password reset complete', 
     expect(audit!.actor).toBe(user.id);
     vi.doUnmock('next/headers');
   });
+
+  it('REAL reset flow: payload.forgotPassword → setPasswordFromTokenAction → password.reset.complete + new password works (BUG-FIX)', async () => {
+    const user = await createUserFixture(payload, 'contributor');
+
+    // Trigger Payload's native forgot-password to seed resetPasswordToken
+    await payload.forgotPassword({
+      collection: 'users',
+      data: { email: user.email },
+      disableEmail: true,
+    });
+
+    // Pull the freshly-seeded token from the user record
+    const fresh = await payload.findByID({ collection: 'users', id: user.id, depth: 0, showHiddenFields: true });
+    const tokenValue = (fresh as { resetPasswordToken: string }).resetPasswordToken;
+    expect(tokenValue).toBeTruthy();
+
+    vi.doMock('next/headers', () => ({
+      cookies: async () => ({ set: vi.fn(), delete: vi.fn(), get: () => undefined }),
+    }));
+    const { setPasswordFromTokenAction } = await import('@/lib/auth');
+    const result = await setPasswordFromTokenAction(tokenValue, 'BrandNewPass1!');
+    expect(result.ok).toBe(true);
+
+    // Audit row written
+    const audit = await findLatestAudit('password.reset.complete');
+    expect(audit).toBeTruthy();
+    expect(audit!.actor).toBe(user.id);
+
+    // New password actually works
+    const reLogin = await payload.login({
+      collection: 'users',
+      data: { email: user.email, password: 'BrandNewPass1!' },
+    });
+    expect(reLogin.token).toBeTruthy();
+
+    vi.doUnmock('next/headers');
+  });
 });
 
 describe('audit-log triggers — users.afterChange', () => {
