@@ -270,27 +270,10 @@ export interface SetPasswordResult {
   error?: string;
 }
 
-// Heuristic to distinguish invitation-accept from password-reset-complete
-// without storing an explicit token-kind on the user record. Invitations
-// set `invitedAt` AND a 7-day-expiry token; password-resets set a 1-hour
-// expiry and don't touch `invitedAt`. The 60s tolerance covers
-// invitedAt vs tokenExpiresAt clock-drift inside Payload's create() call.
-const INVITE_EXPIRY_HEURISTIC_MS = 7 * 24 * 60 * 60 * 1000;
-const INVITE_PATTERN_TOLERANCE_MS = 60 * 1000;
-
-function isInvitationAcceptPattern(
-  invitedAt: string | null | undefined,
-  tokenExpiresAt: string | null | undefined,
-): boolean {
-  if (!invitedAt || !tokenExpiresAt) return false;
-  const inv = new Date(invitedAt).getTime();
-  const exp = new Date(tokenExpiresAt).getTime();
-  return Math.abs(exp - (inv + INVITE_EXPIRY_HEURISTIC_MS)) < INVITE_PATTERN_TOLERANCE_MS;
-}
-
 export async function setPasswordFromTokenAction(
   token: string,
   newPassword: string,
+  requestHeaders?: Headers,
 ): Promise<SetPasswordResult> {
   'use server';
   if (newPassword.length < 8) {
@@ -299,66 +282,167 @@ export async function setPasswordFromTokenAction(
   if (!token) {
     return { ok: false, error: 'Kein Token übergeben.' };
   }
+
+  const loginContext: LoginContext = requestHeaders
+    ? extractLoginContext(new Request('http://internal', { headers: requestHeaders }))
+    : { ip: null, userAgent: null };
+
   try {
     const payload = await payloadInstance();
-    const found = await payload.find({
+
+    // 1) Try V1.6-invitation token (custom setPasswordToken field). Order
+    //    matters: if BOTH token fields are set on the same user (rare race
+    //    between invite and forgot-password), invitation wins.
+    //    setPasswordToken/setPasswordTokenExpiresAt are only `admin: { hidden: true }`
+    //    (UI-hidden), not field-level hidden — visible via Local API by default.
+    const invFound = await payload.find({
       collection: 'users',
       where: { setPasswordToken: { equals: token } },
       depth: 0,
       limit: 1,
     });
-    if (found.docs.length === 0) {
-      return { ok: false, error: 'Token ungültig.' };
+    if (invFound.docs.length > 0) {
+      const user = invFound.docs[0] as {
+        id: number;
+        email: string;
+        role?: Role;
+        displayName?: string;
+        setPasswordTokenExpiresAt?: string | null;
+      };
+      return await handleInvitationAccept(payload, user, newPassword, loginContext);
     }
-    const user = found.docs[0] as {
-      id: number; email: string; role?: Role; displayName?: string;
-      setPasswordTokenExpiresAt?: string | null;
-      invitedAt?: string | null;
-    };
-    if (!isTokenValid(user.setPasswordTokenExpiresAt)) {
-      return { ok: false, error: 'Token abgelaufen.' };
-    }
-    const isInvite = isInvitationAcceptPattern(user.invitedAt, user.setPasswordTokenExpiresAt);
-    await payload.update({
+
+    // 2) Try Payload-native reset token. resetPasswordExpiration is a
+    //    Payload base-auth field with field-level `hidden: true` — we need
+    //    showHiddenFields:true to read it back for the isTokenValid check.
+    const resetFound = await payload.find({
       collection: 'users',
-      id: user.id,
-      data: {
-        password: newPassword,
-        setPasswordToken: null,
-        setPasswordTokenExpiresAt: null,
-      } as never,
+      where: { resetPasswordToken: { equals: token } },
+      depth: 0,
+      limit: 1,
+      showHiddenFields: true,
     });
-    await writeAuditLog(payload, {
-      eventType: isInvite ? 'invitation.accept' : 'password.reset.complete',
-      actor: user.id,
-      actorEmail: user.email,
-      subject: user.id,
-      subjectEmail: user.email,
-    });
-    // Send welcome mail. Failure must NOT block the user from logging in —
-    // they just set their password, the account works either way.
-    try {
-      const welcome = renderWelcomeMail({
-        to: user.email,
-        displayName: user.displayName ?? '',
-        role: (user.role ?? 'contributor') as Role,
-      });
-      await sendMail({ to: user.email, ...welcome });
-    } catch (err) {
-      console.warn('[V1.6] welcome mail failed:', err);
+    if (resetFound.docs.length > 0) {
+      const user = resetFound.docs[0] as {
+        id: number;
+        email: string;
+        role?: Role;
+        resetPasswordExpiration?: string | null;
+      };
+      return await handleResetComplete(payload, user, token, newPassword, loginContext);
     }
-    const loginResult = await payload.login({
-      collection: 'users',
-      data: { email: user.email, password: newPassword },
-    });
-    if (loginResult.token) {
-      await setAuthCookie(loginResult.token);
-    }
-    const role = (user.role ?? 'contributor') as Role;
-    return { ok: true, redirectTo: redirectForRole(role) };
+
+    return { ok: false, error: 'Token ungültig.' };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : 'Set-Password failed.' };
   }
+}
+
+async function handleInvitationAccept(
+  payload: Payload,
+  user: {
+    id: number;
+    email: string;
+    role?: Role;
+    displayName?: string;
+    setPasswordTokenExpiresAt?: string | null;
+  },
+  newPassword: string,
+  loginContext: LoginContext,
+): Promise<SetPasswordResult> {
+  if (!isTokenValid(user.setPasswordTokenExpiresAt)) {
+    return { ok: false, error: 'Token abgelaufen.' };
+  }
+
+  await payload.update({
+    collection: 'users',
+    id: user.id,
+    data: {
+      password: newPassword,
+      setPasswordToken: null,
+      setPasswordTokenExpiresAt: null,
+    } as never,
+  });
+
+  await writeAuditLog(payload, {
+    eventType: 'invitation.accept',
+    actor: user.id,
+    actorEmail: user.email,
+    subject: user.id,
+    subjectEmail: user.email,
+    loginContext,
+  });
+
+  // Welcome mail — invitation-only. Failure must NOT block login.
+  try {
+    const welcome = renderWelcomeMail({
+      to: user.email,
+      displayName: user.displayName ?? '',
+      role: (user.role ?? 'contributor') as Role,
+    });
+    await sendMail({ to: user.email, ...welcome });
+  } catch (err) {
+    console.warn('[V1.6] welcome mail failed:', err);
+  }
+
+  // Auto-login. payload.login can throw (e.g. Disabled-Hook); guard silently
+  // — user gets redirected without cookie and must log in manually. Existing
+  // V1.6 behavior preserved.
+  const loginResult = await payload.login({
+    collection: 'users',
+    data: { email: user.email, password: newPassword },
+  });
+  if (loginResult.token) {
+    await setAuthCookie(loginResult.token);
+  }
+
+  const role = (user.role ?? 'contributor') as Role;
+  return { ok: true, redirectTo: redirectForRole(role) };
+}
+
+async function handleResetComplete(
+  payload: Payload,
+  user: {
+    id: number;
+    email: string;
+    role?: Role;
+    resetPasswordExpiration?: string | null;
+  },
+  token: string,
+  newPassword: string,
+  loginContext: LoginContext,
+): Promise<SetPasswordResult> {
+  // Pre-check expiration so we return the German message reliably, instead
+  // of matching against Payload's English error text (which could be i18n'd
+  // in the future).
+  if (!isTokenValid(user.resetPasswordExpiration)) {
+    return { ok: false, error: 'Token abgelaufen.' };
+  }
+
+  // Payload's resetPassword regenerates salt+hash, clears the token, and
+  // returns a JWT — all transactionally correct. overrideAccess is needed
+  // because resetPasswordToken is marked update:false at the field level.
+  const result = await payload.resetPassword({
+    collection: 'users',
+    data: { token, password: newPassword },
+    overrideAccess: true,
+  });
+
+  await writeAuditLog(payload, {
+    eventType: 'password.reset.complete',
+    actor: user.id,
+    actorEmail: user.email,
+    subject: user.id,
+    subjectEmail: user.email,
+    loginContext,
+  });
+
+  if (result.token) {
+    await setAuthCookie(result.token);
+  }
+
+  const role = (user.role ?? 'contributor') as Role;
+  return { ok: true, redirectTo: redirectForRole(role) };
 }
 
 // ---------------------------------------------------------------------------
