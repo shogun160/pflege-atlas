@@ -64,6 +64,19 @@ export function extractLoginContext(request: Request): LoginContext {
   return { ip, userAgent: request.headers.get('user-agent') };
 }
 
+/**
+ * Writes an audit-log entry. Silent-failure by design: catches every error,
+ * logs to console.error, never throws — audit must never block a user action.
+ *
+ * **Usage from collection hooks:** you MUST pass `input.req` (the Payload-hook
+ * context's request) so the audit-insert joins the parent transaction. Without
+ * it, the audit-insert runs in its own transaction and the subject FK fires
+ * before the in-flight row commits (Postgres 23503). See `users.afterChange`
+ * for the canonical pattern.
+ *
+ * **Usage from server actions / scripts:** omit `input.req` — the audit-insert
+ * is an independent transaction, no constraint races.
+ */
 export async function writeAuditLog(payload: Payload, input: AuditEventInput): Promise<void> {
   try {
     const ipHashRaw = input.loginContext?.ip ? hashIp(input.loginContext.ip) : '';
