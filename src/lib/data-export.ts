@@ -1,10 +1,19 @@
 import type { Payload, Where, CollectionSlug } from 'payload';
 
+export interface AuditLogExportEntry {
+  createdAt: string;
+  eventType: string;
+  actorEmail: string | null;
+  subjectEmail: string | null;
+  metadata: Record<string, unknown> | null;
+}
+
 export interface ExportShape {
   exportedAt: string;
   user: Record<string, unknown>;
   submissions: Array<Record<string, unknown>>;
   articles: Array<Record<string, unknown>>;
+  auditLog: AuditLogExportEntry[];
 }
 
 export const SENSITIVE_USER_FIELDS = [
@@ -38,10 +47,28 @@ export class ExportTooLargeError extends Error {
   }
 }
 
+/**
+ * Projects an audit-row from Payload into the export shape. Strips
+ * ipHash/userAgent (admin-only forensics) and actor/subject IDs (redundant —
+ * the user already has their own ID in `user`).
+ */
+export function projectAuditEntryForExport(
+  doc: Record<string, unknown>,
+): AuditLogExportEntry {
+  return {
+    createdAt: doc.createdAt as string,
+    eventType: doc.eventType as string,
+    actorEmail: (doc.actorEmail ?? null) as string | null,
+    subjectEmail: (doc.subjectEmail ?? null) as string | null,
+    metadata: (doc.metadata ?? null) as Record<string, unknown> | null,
+  };
+}
+
 export function shapeExport(args: {
   user: Record<string, unknown>;
   submissions: Array<Record<string, unknown>>;
   articles: Array<Record<string, unknown>>;
+  auditLog: Array<Record<string, unknown>>;
 }): ExportShape {
   const userClean: Record<string, unknown> = { ...args.user };
   for (const field of SENSITIVE_USER_FIELDS) {
@@ -52,6 +79,7 @@ export function shapeExport(args: {
     user: userClean,
     submissions: args.submissions,
     articles: args.articles,
+    auditLog: args.auditLog.map(projectAuditEntryForExport),
   };
 }
 
@@ -59,8 +87,9 @@ export async function findAllForExport<T>(args: {
   payload: Payload;
   collection: CollectionSlug;
   where: Where;
+  sort?: string;
 }): Promise<T[]> {
-  const { payload, collection, where } = args;
+  const { payload, collection, where, sort } = args;
   const accumulated: T[] = [];
   let page = 1;
 
@@ -71,6 +100,7 @@ export async function findAllForExport<T>(args: {
       limit: EXPORT_PAGE_SIZE,
       page,
       depth: 0,
+      ...(sort ? { sort } : {}),
     });
     accumulated.push(...(res.docs as T[]));
 

@@ -1,5 +1,6 @@
 import type { CollectionConfig } from 'payload';
 import { renderForgotPasswordMail } from '@/lib/mail-templates/forgot-password';
+import { writeAuditLog } from '@/lib/audit-log';
 
 export const Users: CollectionConfig = {
   slug: 'users',
@@ -31,6 +32,87 @@ export const Users: CollectionConfig = {
       ({ user }) => {
         if ((user as { disabled?: boolean }).disabled) {
           throw new Error('Account ist gesperrt (disabled).');
+        }
+      },
+    ],
+    afterChange: [
+      async ({ req, doc, previousDoc, operation }) => {
+        const payload = req.payload;
+        const actor = req.user as
+          | { id?: number; email?: string; role?: string }
+          | undefined;
+        const userDoc = doc as {
+          id: number;
+          email: string;
+          role?: string;
+          disabled?: boolean;
+          setPasswordToken?: string | null;
+          invitedAt?: string | Date | null;
+        };
+        const prev = previousDoc as
+          | {
+              email?: string;
+              role?: string;
+              disabled?: boolean;
+            }
+          | undefined;
+
+        // 1) invitation.create — new user with invitation pattern
+        if (operation === 'create' && userDoc.setPasswordToken && userDoc.invitedAt) {
+          await writeAuditLog(payload, {
+            eventType: 'invitation.create',
+            actor: actor?.id ?? null,
+            actorEmail: actor?.email ?? null,
+            subject: userDoc.id,
+            subjectEmail: userDoc.email,
+            metadata: { assignedRole: userDoc.role },
+            req,
+          });
+        }
+
+        // 2-4) Update-only events
+        if (operation === 'update' && prev) {
+          // role.change
+          if (prev.role !== userDoc.role) {
+            await writeAuditLog(payload, {
+              eventType: 'role.change',
+              actor: actor?.id ?? null,
+              actorEmail: actor?.email ?? null,
+              subject: userDoc.id,
+              subjectEmail: userDoc.email,
+              metadata: { oldRole: prev.role, newRole: userDoc.role },
+              req,
+            });
+          }
+
+          // account.disable — only false→true (re-enable is a separate, untracked event today)
+          if (!prev.disabled && userDoc.disabled) {
+            await writeAuditLog(payload, {
+              eventType: 'account.disable',
+              actor: actor?.id ?? null,
+              actorEmail: actor?.email ?? null,
+              subject: userDoc.id,
+              subjectEmail: userDoc.email,
+              req,
+            });
+          }
+
+          // email.change.admin — admin changes ANOTHER user's email
+          if (
+            prev.email !== userDoc.email &&
+            actor?.role === 'admin' &&
+            actor?.id !== userDoc.id
+          ) {
+            await writeAuditLog(payload, {
+              eventType: 'email.change.admin',
+              actor: actor.id ?? null,
+              actorEmail: actor.email ?? null,
+              subject: userDoc.id,
+              subjectEmail: userDoc.email,
+              metadata: { oldEmail: prev.email, newEmail: userDoc.email },
+              req,
+            });
+          }
         }
       },
     ],

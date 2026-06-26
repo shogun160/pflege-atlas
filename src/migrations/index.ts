@@ -9,6 +9,7 @@ import * as migration_20260622_100200_submissions_articles_media_review_fields f
 import * as migration_20260622_100300_submissions_media_review_fields_repair from './20260622_100300_submissions_media_review_fields_repair';
 import * as migration_20260622_100400_promote_initial_admin from './20260622_100400_promote_initial_admin';
 import * as migration_20260623_100000_fk_naming_consistency from './20260623_100000_fk_naming_consistency';
+import * as migration_20260626_080543_audit_logs from './20260626_080543_audit_logs';
 
 export const migrations = [
   {
@@ -65,5 +66,10 @@ export const migrations = [
     up: migration_20260623_100000_fk_naming_consistency.up,
     down: migration_20260623_100000_fk_naming_consistency.down,
     name: '20260623_100000_fk_naming_consistency',
+  },
+  {
+    up: migration_20260626_080543_audit_logs.up,
+    down: migration_20260626_080543_audit_logs.down,
+    name: '20260626_080543_audit_logs',
   },
 ];

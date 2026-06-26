@@ -1,6 +1,7 @@
 'use server';
 
 import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 import { loginAction } from '@/lib/auth';
 
 export interface LoginFormState {
@@ -15,7 +16,8 @@ export async function loginFormAction(
   const email = String(formData.get('email') ?? '');
   const password = String(formData.get('password') ?? '');
   const next = String(formData.get('next') ?? '');
-  const result = await loginAction(email, password);
+  const hdrs = await headers();
+  const result = await loginAction(email, password, hdrs);
   if (!result.ok) {
     return { error: result.error ?? 'Anmeldung fehlgeschlagen.', email };
   }

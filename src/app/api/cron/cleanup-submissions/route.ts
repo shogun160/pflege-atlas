@@ -1,12 +1,17 @@
 import configPromise from '@/payload.config';
-import { getPayload } from 'payload';
+import { getPayload, type Payload } from 'payload';
 import { computeCutoffISO } from '@/lib/cleanup-cutoff';
+import { cleanupExpiredAuditLogs } from '@/lib/audit-log-cleanup';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * Daily cron job that auto-deletes submissions with reviewStatus='rejected'
- * older than 30 days (REJECTED_RETENTION_DAYS).
+ * Daily cron job. Two cleanup tasks piggyback on this single route because
+ * Vercel-Hobby has a 2-slot cron limit:
+ *   1) V1.7 — auto-delete submissions with reviewStatus='rejected' older
+ *      than REJECTED_RETENTION_DAYS (30d).
+ *   2) Sub-C3 — auto-delete audit-log rows older than 90 days, with a
+ *      heartbeat meta-event written on EVERY run.
  *
  * Triggered by Vercel Cron (configured in vercel.json). Vercel sends a
  * GET request with Authorization: Bearer ${CRON_SECRET} header.
@@ -14,17 +19,11 @@ export const dynamic = 'force-dynamic';
  * In Phase 2 (Hetzner+Coolify), the same route is triggered via curl from a
  * Coolify scheduled task — no code change needed, only the trigger mechanism.
  */
-export async function GET(request: Request): Promise<Response> {
-  const auth = request.headers.get('authorization');
-  const secret = process.env.CRON_SECRET;
 
-  if (!secret || auth !== `Bearer ${secret}`) {
-    return new Response('Unauthorized', { status: 401 });
-  }
-
-  const payload = await getPayload({ config: configPromise });
+async function cleanupRejectedSubmissions(
+  payload: Payload,
+): Promise<{ deletedCount: number; errors: string[] }> {
   const cutoff = computeCutoffISO();
-
   const { docs } = await payload.find({
     collection: 'submissions',
     where: {
@@ -41,10 +40,7 @@ export async function GET(request: Request): Promise<Response> {
   const errors: string[] = [];
   for (const doc of docs) {
     try {
-      await payload.delete({
-        collection: 'submissions',
-        id: doc.id,
-      });
+      await payload.delete({ collection: 'submissions', id: doc.id });
       deletedCount++;
     } catch (e) {
       errors.push(`Submission ${doc.id}: ${(e as Error).message}`);
@@ -54,6 +50,41 @@ export async function GET(request: Request): Promise<Response> {
   console.log(
     `[cleanup-submissions] Cutoff ${cutoff}, found ${docs.length}, deleted ${deletedCount}, errors ${errors.length}`,
   );
+  return { deletedCount, errors };
+}
 
-  return Response.json({ deletedCount, errors });
+export async function GET(request: Request): Promise<Response> {
+  const auth = request.headers.get('authorization');
+  const secret = process.env.CRON_SECRET;
+
+  if (!secret || auth !== `Bearer ${secret}`) {
+    return new Response('Unauthorized', { status: 401 });
+  }
+
+  const payload = await getPayload({ config: configPromise });
+
+  // Sequential — same DB connection pool. Submissions first (existing V1.7
+  // logic, untouched semantically). Audit second.
+  const submissionsResult = await cleanupRejectedSubmissions(payload);
+
+  let auditDeleted: number;
+  try {
+    auditDeleted = await cleanupExpiredAuditLogs(payload);
+  } catch (err) {
+    console.error('[cleanup-audit-logs] failed', err);
+    return Response.json(
+      {
+        submissionsDeleted: submissionsResult.deletedCount,
+        submissionsErrors: submissionsResult.errors,
+        auditError: (err as Error).message,
+      },
+      { status: 500 },
+    );
+  }
+
+  return Response.json({
+    submissionsDeleted: submissionsResult.deletedCount,
+    submissionsErrors: submissionsResult.errors,
+    auditDeleted,
+  });
 }

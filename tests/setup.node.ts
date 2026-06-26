@@ -1,5 +1,9 @@
 import { vi } from 'vitest';
 
+// Sub-C3 — Audit-Log: deterministisches Test-Secret für hashIp().
+// Überschreibt .env-Wert damit Hash-Output in CI/lokal identisch ist.
+process.env.AUDIT_IP_HASH_SECRET = 'test-secret-value-fixed-for-determinism';
+
 // Defense gegen V1.5-Hook-Push aus Integration-Tests.
 // `tests/integration/articles.test.ts` lädt via `dotenv/config` die echten
 // GITHUB_APP_*-Credentials und ruft `payload.create({status:'published'})`.

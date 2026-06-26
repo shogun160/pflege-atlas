@@ -14,11 +14,13 @@ describe('shapeExport', () => {
       user: { id: 1, email: 'a@b.com', displayName: 'A', role: 'contributor', password: 'shouldnotappear' } as never,
       submissions: [{ id: 10, type: 'new_article', proposedTitle: 'X' } as never],
       articles: [{ id: 20, title: 'Y' } as never],
+      auditLog: [],
     });
     expect(export_.user.email).toBe('a@b.com');
     expect(export_.user).not.toHaveProperty('password');
     expect(export_.submissions).toHaveLength(1);
     expect(export_.articles).toHaveLength(1);
+    expect(export_.auditLog).toEqual([]);
     expect(export_.exportedAt).toMatch(/T/);
   });
 
@@ -44,7 +46,7 @@ describe('shapeExport', () => {
       apiKey: 'k',
       apiKeyIndex: 'i',
     };
-    const export_ = shapeExport({ user: userInput as never, submissions: [], articles: [] });
+    const export_ = shapeExport({ user: userInput as never, submissions: [], articles: [], auditLog: [] });
     for (const field of [
       'password',
       'setPasswordToken',
@@ -154,6 +156,7 @@ describe('findAllForExport', () => {
       user: { id: 1, email: 'a@b.com' } as never,
       submissions: merged as never,
       articles: [],
+      auditLog: [],
     });
     expect(out.submissions).toHaveLength(1500);
   });
