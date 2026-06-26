@@ -71,6 +71,7 @@ export interface Config {
     articles: Article;
     submissions: Submission;
     media: Media;
+    'audit-logs': AuditLog;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -82,6 +83,7 @@ export interface Config {
     articles: ArticlesSelect<false> | ArticlesSelect<true>;
     submissions: SubmissionsSelect<false> | SubmissionsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
+    'audit-logs': AuditLogsSelect<false> | AuditLogsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -445,6 +447,33 @@ export interface Submission {
   createdAt: string;
 }
 /**
+ * Sicherheits- und Kontoverwaltungs-Protokoll (Sub-C3). Read-only. 90-Tage-Retention via Cron.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "audit-logs".
+ */
+export interface AuditLog {
+  id: number;
+  eventType: string;
+  actorUserId?: (number | null) | User;
+  actorEmail?: string | null;
+  subjectUserId?: (number | null) | User;
+  subjectEmail?: string | null;
+  metadata?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  ipHash?: string | null;
+  userAgent?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
@@ -483,6 +512,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'media';
         value: number | Media;
+      } | null)
+    | ({
+        relationTo: 'audit-logs';
+        value: number | AuditLog;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -634,6 +667,22 @@ export interface MediaSelect<T extends boolean = true> {
   height?: T;
   focalX?: T;
   focalY?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "audit-logs_select".
+ */
+export interface AuditLogsSelect<T extends boolean = true> {
+  eventType?: T;
+  actorUserId?: T;
+  actorEmail?: T;
+  subjectUserId?: T;
+  subjectEmail?: T;
+  metadata?: T;
+  ipHash?: T;
+  userAgent?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

@@ -10,6 +10,7 @@ import { Users } from './collections/Users'
 import { Articles } from './collections/Articles'
 import { Submissions } from './collections/Submissions'
 import { Media } from './collections/Media'
+import { AuditLogs } from './collections/AuditLogs'
 import { buildEmailConfig } from './lib/email-config'
 import { assertGithubConfigInProduction } from './lib/env'
 import { buildStorageConfig } from './lib/storage-config'
@@ -39,7 +40,7 @@ export default buildConfig({
       },
     },
   },
-  collections: [Users, Articles, Submissions, Media],
+  collections: [Users, Articles, Submissions, Media, AuditLogs],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
   typescript: {
