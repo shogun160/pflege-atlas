@@ -16,6 +16,7 @@ import { getPayload } from 'payload'
 import configPromise from '@/payload.config'
 import { hardDeleteAvatar } from '@/lib/avatar-cleanup'
 import { anonymizeUserPatch } from '@/lib/user-soft-delete'
+import { performErasureRunbook } from '@/lib/erasure-runbook'
 
 function prompt(question: string): Promise<string> {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
@@ -110,6 +111,12 @@ async function main() {
     collection: 'users',
     id: user.id,
     data: patch as never,
+  })
+
+  await performErasureRunbook(payload, {
+    userId: user.id,
+    originalEmail: targetEmail,
+    stage: 'anonymize',
   })
 
   console.log('')

@@ -500,3 +500,49 @@ describe('audit-log trigger — cleanup-cron real-DB', () => {
     expect((meta.docs[0].metadata as { retentionDays?: number }).retentionDays).toBe(90);
   });
 });
+
+describe('audit-log trigger — account.erasure.runbook (Sub-C2 script)', () => {
+  it('writes account.erasure.runbook with stage=anonymize + original email snapshot', async () => {
+    const payload = await getPayload({ config });
+    await (payload.db as { drizzle: { execute: (sql: unknown) => Promise<unknown> } })
+      .drizzle.execute('DELETE FROM audit_logs');
+
+    const user = await payload.create({
+      collection: 'users',
+      data: {
+        email: 'erase-' + Date.now() + '@test.local',
+        password: 'TestPass123!',
+        displayName: 'EraseMe',
+        role: 'contributor',
+      } as never,
+    });
+    const originalEmail = (user as { email: string }).email;
+
+    const { performErasureRunbook } = await import('@/lib/erasure-runbook');
+    await performErasureRunbook(payload, {
+      userId: user.id as number,
+      originalEmail,
+      stage: 'anonymize',
+    });
+
+    const res = await payload.find({
+      collection: 'audit-logs',
+      where: { eventType: { equals: 'account.erasure.runbook' } },
+      sort: '-createdAt',
+      limit: 1,
+      depth: 0,
+    });
+    const audit = res.docs[0] as null | {
+      actor: number | null;
+      subject: number | null;
+      subjectEmail: string | null;
+      metadata: Record<string, unknown> | null;
+    };
+    expect(audit).toBeTruthy();
+    expect(audit!.actor).toBeNull(); // script has no auth session
+    expect(audit!.subject).toBe(user.id);
+    expect(audit!.subjectEmail).toBe(originalEmail);
+    expect((audit!.metadata as { stage?: string }).stage).toBe('anonymize');
+    expect((audit!.metadata as { method?: string }).method).toBe('runbook_script');
+  });
+});
