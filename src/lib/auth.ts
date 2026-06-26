@@ -559,17 +559,23 @@ export async function performSelfSoftDelete(
   });
 }
 
-export async function exportOwnDataAction(): Promise<{ ok: boolean; json?: string; error?: string }> {
-  'use server';
+/**
+ * Pure DB-operation: builds the full export-JSON for a user. Extracted from
+ * exportOwnDataAction so it can be tested without next/headers/cookie context.
+ * Includes audit-log entries where actor=userId OR subject=userId
+ * (DSGVO Art. 15 Auskunftsrecht für Audit-Daten).
+ */
+export async function performExportOwnData(
+  payload: Payload,
+  userId: number,
+): Promise<{ ok: boolean; json?: string; error?: string }> {
   try {
-    const session = await requireUser();
-    const payload = await payloadInstance();
-    const user = await payload.findByID({ collection: 'users', id: session.id, depth: 0 });
+    const user = await payload.findByID({ collection: 'users', id: userId, depth: 0 });
 
     const submissions = await findAllForExport<Record<string, unknown>>({
       payload,
       collection: 'submissions',
-      where: { submittedBy: { equals: session.id } },
+      where: { submittedBy: { equals: userId } },
     });
 
     // `authors` is a hasMany relationship — Payload's `equals` operator
@@ -578,13 +584,28 @@ export async function exportOwnDataAction(): Promise<{ ok: boolean; json?: strin
     const articles = await findAllForExport<Record<string, unknown>>({
       payload,
       collection: 'articles',
-      where: { authors: { equals: session.id } },
+      where: { authors: { equals: userId } },
+    });
+
+    // Sub-C3: audit-log entries — actor=me OR subject=me, sorted -createdAt.
+    // Reuses Sub-C1's findAllForExport pagination + 10.000-hard-cap pattern.
+    const auditLog = await findAllForExport<Record<string, unknown>>({
+      payload,
+      collection: 'audit-logs',
+      where: {
+        or: [
+          { actor: { equals: userId } },
+          { subject: { equals: userId } },
+        ],
+      },
+      sort: '-createdAt',
     });
 
     const shape = shapeExport({
       user: user as never,
       submissions,
       articles,
+      auditLog,
     });
     return { ok: true, json: JSON.stringify(shape, null, 2) };
   } catch (err) {
@@ -597,4 +618,11 @@ export async function exportOwnDataAction(): Promise<{ ok: boolean; json?: strin
     }
     return { ok: false, error: err instanceof Error ? err.message : 'Export failed.' };
   }
+}
+
+export async function exportOwnDataAction(): Promise<{ ok: boolean; json?: string; error?: string }> {
+  'use server';
+  const session = await requireUser();
+  const payload = await payloadInstance();
+  return performExportOwnData(payload, session.id);
 }
