@@ -125,44 +125,44 @@ export async function loginAction(
 
   const payload = await payloadInstance();
 
-  // Pre-lookup distinguishes unknown vs wrong-password WITHOUT leaking the
-  // distinction to the client (Email-Existence-Oracle defense). The same
-  // lookup also gives us actor + actorEmail for the audit row.
-  const found = await payload.find({
-    collection: 'users',
-    where: { email: { equals: email } },
-    depth: 0,
-    limit: 1,
-  });
-  const existingUser = found.docs[0] as
-    | { id: number; email: string; disabled?: boolean }
-    | undefined;
-
   try {
     const result = await payload.login({
       collection: 'users',
       data: { email, password },
     });
     if (!result.token) {
+      // payload.login throws on failure in practice; this branch is defensive.
       await writeAuditLog(payload, {
         eventType: 'login.failure',
-        actor: existingUser?.id ?? null,
-        actorEmail: existingUser?.email ?? null,
+        actor: null,
+        actorEmail: null,
         metadata: { bucket: 'wrong-password', emailAttempt: email },
         loginContext,
       });
       return { ok: false, error: 'Login fehlgeschlagen.' };
     }
     await setAuthCookie(result.token);
-    const role = (result.user as { role?: Role }).role ?? 'contributor';
+    const user = result.user as { id: number; email: string; role?: Role };
+    const role = user.role ?? 'contributor';
     await writeAuditLog(payload, {
       eventType: 'login.success',
-      actor: existingUser?.id ?? (result.user as { id?: number }).id ?? null,
-      actorEmail: existingUser?.email ?? (result.user as { email?: string }).email ?? email,
+      actor: user.id,
+      actorEmail: user.email,
       loginContext,
     });
     return { ok: true, redirectTo: redirectForRole(role) };
   } catch (err) {
+    // Pre-Lookup ONLY in catch — for bucket-disambiguation.
+    const found = await payload.find({
+      collection: 'users',
+      where: { email: { equals: email } },
+      depth: 0,
+      limit: 1,
+    });
+    const existingUser = found.docs[0] as
+      | { id: number; email: string; disabled?: boolean }
+      | undefined;
+
     // Generic message — don't leak whether the email exists, the password
     // is wrong, or the account is disabled/locked. The audit row captures
     // the bucket truth server-side; the client never sees the distinction.
@@ -172,9 +172,6 @@ export async function loginAction(
     } else if (existingUser.disabled) {
       bucket = 'disabled';
     } else if (err instanceof LockedAuth) {
-      // Use Payload's error class (not message-text) so this stays correct
-      // when admin i18n is enabled — translated messages drop the literal
-      // 'locked' substring.
       bucket = 'locked';
     } else {
       bucket = 'wrong-password';
