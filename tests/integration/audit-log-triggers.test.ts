@@ -242,6 +242,170 @@ describe('audit-log triggers — invitation accept vs password reset complete', 
 
     vi.doUnmock('next/headers');
   });
+
+  it('sends welcome mail on invitation.accept but NOT on password.reset.complete', async () => {
+    const sendMailSpy = vi.fn(async () => undefined);
+    vi.doMock('@/lib/mail', () => ({ sendMail: sendMailSpy }));
+    vi.doMock('next/headers', () => ({
+      cookies: async () => ({ set: vi.fn(), delete: vi.fn(), get: () => undefined }),
+    }));
+
+    // --- Invitation path: expects sendMail called ---
+    const invitedAt = new Date();
+    const tokenExpiresAt = new Date(invitedAt.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const inviteUser = await payload.create({
+      collection: 'users',
+      data: {
+        email: 'invitee-welcome-' + Date.now() + '@test.local',
+        password: 'temp-' + Math.random(),
+        displayName: 'Invitee Welcome',
+        role: 'contributor',
+        setPasswordToken: 'inv-welcome-tok-' + Date.now(),
+        setPasswordTokenExpiresAt: tokenExpiresAt.toISOString(),
+        invitedAt: invitedAt.toISOString(),
+      } as never,
+    });
+    const inviteToken = (inviteUser as { setPasswordToken: string }).setPasswordToken;
+    const { setPasswordFromTokenAction } = await import('@/lib/auth');
+    await setPasswordFromTokenAction(inviteToken, 'NewPass123!');
+    expect(sendMailSpy).toHaveBeenCalledTimes(1);
+
+    // --- Reset path: expects sendMail NOT called ---
+    sendMailSpy.mockClear();
+    const resetUser = await createUserFixture(payload, 'contributor');
+    await payload.forgotPassword({
+      collection: 'users',
+      data: { email: resetUser.email },
+      disableEmail: true,
+    });
+    const freshReset = await payload.findByID({ collection: 'users', id: resetUser.id, depth: 0, showHiddenFields: true });
+    const resetToken = (freshReset as { resetPasswordToken: string }).resetPasswordToken;
+    await setPasswordFromTokenAction(resetToken, 'BrandNewPass1!');
+    expect(sendMailSpy).toHaveBeenCalledTimes(0);
+
+    vi.doUnmock('@/lib/mail');
+    vi.doUnmock('next/headers');
+  });
+
+  it('threads requestHeaders into invitation.accept audit (ipHash + userAgent)', async () => {
+    const invitedAt = new Date();
+    const tokenExpiresAt = new Date(invitedAt.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const user = await payload.create({
+      collection: 'users',
+      data: {
+        email: 'invitee-hdr-' + Date.now() + '@test.local',
+        password: 'temp-' + Math.random(),
+        displayName: 'Invitee Headers',
+        role: 'contributor',
+        setPasswordToken: 'inv-hdr-tok-' + Date.now(),
+        setPasswordTokenExpiresAt: tokenExpiresAt.toISOString(),
+        invitedAt: invitedAt.toISOString(),
+      } as never,
+    });
+    const tokenValue = (user as { setPasswordToken: string }).setPasswordToken;
+    vi.doMock('next/headers', () => ({
+      cookies: async () => ({ set: vi.fn(), delete: vi.fn(), get: () => undefined }),
+    }));
+    const { setPasswordFromTokenAction } = await import('@/lib/auth');
+    const headers = new Headers({ 'x-forwarded-for': '10.0.0.1', 'user-agent': 'InviteUA/1.0' });
+    const result = await setPasswordFromTokenAction(tokenValue, 'NewPass123!', headers);
+    expect(result.ok).toBe(true);
+
+    const audit = await findLatestAudit('invitation.accept');
+    expect(audit).toBeTruthy();
+    expect(audit!.ipHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(audit!.userAgent).toBe('InviteUA/1.0');
+    vi.doUnmock('next/headers');
+  });
+
+  it('threads requestHeaders into password.reset.complete audit (ipHash + userAgent)', async () => {
+    const user = await createUserFixture(payload, 'contributor');
+    await payload.forgotPassword({
+      collection: 'users',
+      data: { email: user.email },
+      disableEmail: true,
+    });
+    const fresh = await payload.findByID({ collection: 'users', id: user.id, depth: 0, showHiddenFields: true });
+    const tokenValue = (fresh as { resetPasswordToken: string }).resetPasswordToken;
+    vi.doMock('next/headers', () => ({
+      cookies: async () => ({ set: vi.fn(), delete: vi.fn(), get: () => undefined }),
+    }));
+    const { setPasswordFromTokenAction } = await import('@/lib/auth');
+    const headers = new Headers({ 'x-forwarded-for': '10.0.0.2', 'user-agent': 'ResetUA/1.0' });
+    const result = await setPasswordFromTokenAction(tokenValue, 'BrandNewPass1!', headers);
+    expect(result.ok).toBe(true);
+
+    const audit = await findLatestAudit('password.reset.complete');
+    expect(audit).toBeTruthy();
+    expect(audit!.ipHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(audit!.userAgent).toBe('ResetUA/1.0');
+    vi.doUnmock('next/headers');
+  });
+
+  it('returns German "Token abgelaufen." for expired resetPasswordToken', async () => {
+    const user = await createUserFixture(payload, 'contributor');
+    await payload.forgotPassword({
+      collection: 'users',
+      data: { email: user.email },
+      disableEmail: true,
+    });
+    // Force expiration into the past via direct update
+    await payload.update({
+      collection: 'users',
+      id: user.id,
+      data: { resetPasswordExpiration: new Date(Date.now() - 60 * 60 * 1000).toISOString() } as never,
+      overrideAccess: true,
+    });
+    const fresh = await payload.findByID({ collection: 'users', id: user.id, depth: 0, showHiddenFields: true });
+    const tokenValue = (fresh as { resetPasswordToken: string }).resetPasswordToken;
+    vi.doMock('next/headers', () => ({
+      cookies: async () => ({ set: vi.fn(), delete: vi.fn(), get: () => undefined }),
+    }));
+    const { setPasswordFromTokenAction } = await import('@/lib/auth');
+    const result = await setPasswordFromTokenAction(tokenValue, 'WhateverPass1!');
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe('Token abgelaufen.');
+    vi.doUnmock('next/headers');
+  });
+
+  it('when both setPasswordToken AND resetPasswordToken are set, invitation wins', async () => {
+    const invitedAt = new Date();
+    const tokenExpiresAt = new Date(invitedAt.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const user = await payload.create({
+      collection: 'users',
+      data: {
+        email: 'conflict-' + Date.now() + '@test.local',
+        password: 'temp-' + Math.random(),
+        displayName: 'Conflict User',
+        role: 'contributor',
+        setPasswordToken: 'shared-token-' + Date.now(),
+        setPasswordTokenExpiresAt: tokenExpiresAt.toISOString(),
+        invitedAt: invitedAt.toISOString(),
+      } as never,
+    });
+    const tokenValue = (user as { setPasswordToken: string }).setPasswordToken;
+    // Seed reset-token-pair with the SAME token value (unrealistic but tests dispatch order)
+    await payload.update({
+      collection: 'users',
+      id: user.id,
+      data: {
+        resetPasswordToken: tokenValue,
+        resetPasswordExpiration: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      } as never,
+      overrideAccess: true,
+    });
+    vi.doMock('next/headers', () => ({
+      cookies: async () => ({ set: vi.fn(), delete: vi.fn(), get: () => undefined }),
+    }));
+    const { setPasswordFromTokenAction } = await import('@/lib/auth');
+    const result = await setPasswordFromTokenAction(tokenValue, 'NewPass123!');
+    expect(result.ok).toBe(true);
+
+    const audit = await findLatestAudit('invitation.accept');
+    expect(audit).toBeTruthy();
+    expect(audit!.actor).toBe(user.id as number);
+    vi.doUnmock('next/headers');
+  });
 });
 
 describe('audit-log triggers — users.afterChange', () => {
