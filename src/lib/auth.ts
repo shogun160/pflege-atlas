@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { getPayload } from 'payload';
+import { getPayload, LockedAuth } from 'payload';
 import config from '@/payload.config';
 import { hasPermission, type Action, type Resource, type Role } from './auth-permissions';
 import { generateToken, INVITE_EXPIRY_MS, isTokenValid } from './auth-tokens';
@@ -171,9 +171,13 @@ export async function loginAction(
       bucket = 'unknown';
     } else if (existingUser.disabled) {
       bucket = 'disabled';
+    } else if (err instanceof LockedAuth) {
+      // Use Payload's error class (not message-text) so this stays correct
+      // when admin i18n is enabled — translated messages drop the literal
+      // 'locked' substring.
+      bucket = 'locked';
     } else {
-      const msg = err instanceof Error ? err.message : '';
-      bucket = msg.toLowerCase().includes('locked') ? 'locked' : 'wrong-password';
+      bucket = 'wrong-password';
     }
     await writeAuditLog(payload, {
       eventType: 'login.failure',
