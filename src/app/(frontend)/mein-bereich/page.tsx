@@ -63,7 +63,16 @@ export default async function MeinBereichPage() {
 
       <section className="rounded-lg border border-rule bg-white p-6 shadow-sm">
         <h2 className="mb-4 font-serif text-xl">Profil</h2>
-        <ProfileEditForm user={userDoc as never} />
+        <ProfileEditForm
+          user={
+            {
+              ...(userDoc as object),
+              avatar: session.avatar ?? null,
+              avatarUrl: session.avatarUrl ?? null,
+              email: session.email,
+            } as never
+          }
+        />
       </section>
 
       {session.role === 'contributor' && (

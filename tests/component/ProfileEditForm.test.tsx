@@ -18,6 +18,7 @@ const user = {
   pflegerischeRolle: 'pflegefachkraft',
   bundesland: 'bayern',
   avatar: null,
+  avatarUrl: null,
 };
 
 describe('ProfileEditForm', () => {
