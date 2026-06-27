@@ -57,4 +57,57 @@ describe('avatar-upload backend', () => {
     expect(doc.height).toBe(1);
     expect(doc.mimeType).toBe('image/png');
   });
+
+  it('Session.avatarUrl is null when user has no avatar', async () => {
+    const user = await createUserFixture(payload, 'contributor');
+    const { token } = await payload.login({
+      collection: 'users',
+      data: { email: user.email, password: user.password },
+    });
+    const { vi } = await import('vitest');
+    vi.resetModules();
+    vi.doMock('next/headers', () => ({
+      cookies: async () => ({
+        get: (n: string) => (n === 'payload-token' ? { value: token } : undefined),
+        set: vi.fn(),
+        delete: vi.fn(),
+      }),
+    }));
+    const { getSession } = await import('@/lib/auth');
+    const session = await getSession();
+    expect(session).not.toBeNull();
+    expect(session!.avatar).toBeNull();
+    expect(session!.avatarUrl).toBeNull();
+    vi.doUnmock('next/headers');
+  });
+
+  it('Session.avatarUrl contains URL when user has avatar', async () => {
+    const { createAvatarFixture } = await import('../helpers/avatar-fixture');
+    const user = await createUserFixture(payload, 'contributor');
+    const avatar = await createAvatarFixture(payload, user.id);
+    await payload.update({
+      collection: 'users',
+      id: user.id,
+      data: { avatar: avatar.id } as never,
+    });
+    const { token } = await payload.login({
+      collection: 'users',
+      data: { email: user.email, password: user.password },
+    });
+    const { vi } = await import('vitest');
+    vi.resetModules();
+    vi.doMock('next/headers', () => ({
+      cookies: async () => ({
+        get: (n: string) => (n === 'payload-token' ? { value: token } : undefined),
+        set: vi.fn(),
+        delete: vi.fn(),
+      }),
+    }));
+    const { getSession } = await import('@/lib/auth');
+    const session = await getSession();
+    expect(session).not.toBeNull();
+    expect(session!.avatar).toBe(avatar.id);
+    expect(session!.avatarUrl).toMatch(/^https?:\/\/|^\//);
+    vi.doUnmock('next/headers');
+  });
 });
