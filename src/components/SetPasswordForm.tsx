@@ -6,6 +6,7 @@ import {
   setPasswordFormAction,
   type SetPasswordFormState,
 } from '@/app/(frontend)/passwort-setzen/actions';
+import { PasswordInput } from '@/components/PasswordInput';
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -38,28 +39,24 @@ export function SetPasswordForm({
         <label htmlFor="password" className="mb-1 block text-sm font-medium">
           Neues Passwort (min. 8 Zeichen)
         </label>
-        <input
+        <PasswordInput
           id="password"
           name="password"
-          type="password"
           required
           minLength={8}
           autoComplete="new-password"
-          className="w-full rounded border border-rule px-3 py-2"
         />
       </div>
       <div>
         <label htmlFor="passwordRepeat" className="mb-1 block text-sm font-medium">
           Passwort wiederholen
         </label>
-        <input
+        <PasswordInput
           id="passwordRepeat"
           name="passwordRepeat"
-          type="password"
           required
           minLength={8}
           autoComplete="new-password"
-          className="w-full rounded border border-rule px-3 py-2"
         />
       </div>
       {mode === 'invitation' && (
