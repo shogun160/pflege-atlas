@@ -22,7 +22,12 @@ type AuditDoc = {
   createdAt: string
   eventType: string
   ipHash?: string | null
-  metadata?: { deletedCount?: number; retentionDays?: number } | null
+  metadata?: {
+    deletedCount?: number;
+    retentionDays?: number;
+    orphanAvatarsDeleted?: number;
+    submissionsDeleted?: number;
+  } | null
 }
 
 async function main(): Promise<void> {
@@ -91,8 +96,10 @@ async function main(): Promise<void> {
     const ageMs = Date.now() - new Date(latest.createdAt).getTime()
     const ageH = ageMs / (1000 * 60 * 60)
     console.log(`Letzter Heartbeat: ${latest.createdAt} (vor ${ageH.toFixed(1)}h)`)
-    console.log(`  deletedCount:  ${latest.metadata?.deletedCount ?? '?'}`)
-    console.log(`  retentionDays: ${latest.metadata?.retentionDays ?? '?'}`)
+    console.log(`  deletedCount:        ${latest.metadata?.deletedCount ?? '?'}`)
+    console.log(`  retentionDays:       ${latest.metadata?.retentionDays ?? '?'}`)
+    console.log(`  orphanAvatarsDeleted: ${latest.metadata?.orphanAvatarsDeleted ?? '?'}`)
+    console.log(`  submissionsDeleted:   ${latest.metadata?.submissionsDeleted ?? '?'}`)
     if (ageH > MAX_HEARTBEAT_AGE_HOURS) {
       console.error(
         `❌ FAIL: Heartbeat ist ${ageH.toFixed(1)}h alt (Schwelle ${MAX_HEARTBEAT_AGE_HOURS}h). ` +

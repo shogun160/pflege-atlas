@@ -2,15 +2,18 @@ import configPromise from '@/payload.config';
 import { getPayload, type Payload } from 'payload';
 import { computeCutoffISO } from '@/lib/cleanup-cutoff';
 import { cleanupExpiredAuditLogs } from '@/lib/audit-log-cleanup';
+import { cleanupOrphanAvatars } from '@/lib/avatar-orphan-cleanup';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * Daily cron job. Two cleanup tasks piggyback on this single route because
+ * Daily cron job. Three cleanup tasks piggyback on this single route because
  * Vercel-Hobby has a 2-slot cron limit:
  *   1) V1.7 — auto-delete submissions with reviewStatus='rejected' older
  *      than REJECTED_RETENTION_DAYS (30d).
- *   2) Sub-C3 — auto-delete audit-log rows older than 90 days, with a
+ *   2) V1.6.1 — auto-delete orphan avatar-media (purpose='avatar') older
+ *      than 24h that no user references (Two-Step-Upload-UX orphans).
+ *   3) Sub-C3 — auto-delete audit-log rows older than 90 days, with a
  *      heartbeat meta-event written on EVERY run.
  *
  * Triggered by Vercel Cron (configured in vercel.json). Vercel sends a
@@ -64,18 +67,37 @@ export async function GET(request: Request): Promise<Response> {
   const payload = await getPayload({ config: configPromise });
 
   // Sequential — same DB connection pool. Submissions first (existing V1.7
-  // logic, untouched semantically). Audit second.
+  // logic, untouched semantically). Orphan avatars second. Audit third.
   const submissionsResult = await cleanupRejectedSubmissions(payload);
+
+  let orphanAvatarsDeleted: number;
+  try {
+    orphanAvatarsDeleted = await cleanupOrphanAvatars(payload);
+  } catch (err) {
+    console.error('[cleanup-orphan-avatars] failed', err);
+    return Response.json(
+      {
+        submissionsDeleted: submissionsResult.deletedCount,
+        submissionsErrors: submissionsResult.errors,
+        orphanAvatarError: (err as Error).message,
+      },
+      { status: 500 },
+    );
+  }
 
   let auditDeleted: number;
   try {
-    auditDeleted = await cleanupExpiredAuditLogs(payload);
+    auditDeleted = await cleanupExpiredAuditLogs(payload, {
+      orphanAvatarsDeleted,
+      submissionsDeleted: submissionsResult.deletedCount,
+    });
   } catch (err) {
     console.error('[cleanup-audit-logs] failed', err);
     return Response.json(
       {
         submissionsDeleted: submissionsResult.deletedCount,
         submissionsErrors: submissionsResult.errors,
+        orphanAvatarsDeleted,
         auditError: (err as Error).message,
       },
       { status: 500 },
@@ -85,6 +107,7 @@ export async function GET(request: Request): Promise<Response> {
   return Response.json({
     submissionsDeleted: submissionsResult.deletedCount,
     submissionsErrors: submissionsResult.errors,
+    orphanAvatarsDeleted,
     auditDeleted,
   });
 }
