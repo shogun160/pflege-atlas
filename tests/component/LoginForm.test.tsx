@@ -14,7 +14,7 @@ describe('LoginForm', () => {
   it('renders email + password fields + submit + forgot-link', () => {
     render(<LoginForm />);
     expect(screen.getByLabelText(/e-mail/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/passwort/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/passwort/i, { selector: 'input' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /anmelden/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /passwort vergessen/i })).toHaveAttribute(
       'href',
