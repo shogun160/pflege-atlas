@@ -18,12 +18,20 @@ export function HeaderUserMenu({ session }: { session: Session | null }) {
     session.role === 'reviewer';
   return (
     <div className="flex items-center gap-3">
-      <div
-        aria-hidden="true"
-        className="flex h-8 w-8 items-center justify-center rounded-full bg-brand text-sm font-semibold text-white"
-      >
-        {initial}
-      </div>
+      {session.avatarUrl ? (
+        <img
+          src={session.avatarUrl}
+          alt={`Profilbild von ${session.displayName || session.email}`}
+          className="h-8 w-8 rounded-full object-cover"
+        />
+      ) : (
+        <div
+          aria-hidden="true"
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-brand text-sm font-semibold text-white"
+        >
+          {initial}
+        </div>
+      )}
       <span className="text-sm">{session.displayName || session.email}</span>
       <nav className="flex items-center gap-3 text-sm">
         <a href="/mein-bereich" className="underline">

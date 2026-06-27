@@ -86,4 +86,34 @@ describe('HeaderUserMenu', () => {
     );
     expect(screen.getByText('noname@example.de')).toBeInTheDocument();
   });
+
+  it('rendert <img> wenn session.avatarUrl gesetzt', () => {
+    const session = {
+      id: 1,
+      email: 'anna@test.local',
+      displayName: 'Anna',
+      role: 'contributor' as const,
+      disabled: false,
+      avatar: 42,
+      avatarUrl: 'https://r2.example/avatar.jpg',
+    };
+    render(<HeaderUserMenu session={session} />);
+    const img = screen.getByRole('img', { name: /profilbild von anna/i });
+    expect(img).toHaveAttribute('src', 'https://r2.example/avatar.jpg');
+  });
+
+  it('rendert Initial-Letter wenn session.avatarUrl null ist', () => {
+    const session = {
+      id: 1,
+      email: 'anna@test.local',
+      displayName: 'Anna',
+      role: 'contributor' as const,
+      disabled: false,
+      avatar: null,
+      avatarUrl: null,
+    };
+    render(<HeaderUserMenu session={session} />);
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    expect(screen.getByText('A')).toBeInTheDocument();
+  });
 });
