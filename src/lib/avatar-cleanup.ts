@@ -5,10 +5,13 @@ export interface HardDeleteAvatarResult {
   error?: string;
 }
 
-export type HardDeleteAvatarTrigger = 'account-delete' | 'profile-update';
+export type HardDeleteAvatarTrigger =
+  | 'account-delete'
+  | 'profile-update'
+  | 'orphan-cleanup';
 
 export interface HardDeleteAvatarContext {
-  userId: number;
+  userId: number | null;
   trigger: HardDeleteAvatarTrigger;
 }
 
