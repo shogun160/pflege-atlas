@@ -13,6 +13,7 @@ export type Action =
   | 'publish'
   | 'archive'
   | 'delete'
+  | 'bulkImport'
   // submissions
   | 'createSubmission'
   | 'readAllSubmissions'
@@ -50,6 +51,7 @@ export const PERMISSIONS: Record<Role, PermissionSet> = {
   admin: s(
     'read', 'readAllStati', 'createArticle', 'updateContent',
     'transitionToReview', 'transitionToReadyToPublish', 'publish', 'archive', 'delete',
+    'bulkImport',
     'createSubmission', 'readAllSubmissions', 'updateSubmission',
     'readAllUsers', 'inviteAdmin', 'inviteEditor', 'inviteReviewer', 'inviteContributor',
     'updateOwnProfile', 'updateOthersRole', 'updateOthersDisabled',
@@ -58,6 +60,7 @@ export const PERMISSIONS: Record<Role, PermissionSet> = {
   editor: s(
     'read', 'readAllStati', 'createArticle', 'updateContent',
     'transitionToReview', 'transitionToReadyToPublish', 'publish', 'archive',
+    'bulkImport',
     'createSubmission', 'readAllSubmissions', 'updateSubmission',
     'readAllUsers', 'inviteReviewer', 'inviteContributor',
     'updateOwnProfile',

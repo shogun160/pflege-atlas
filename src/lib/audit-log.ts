@@ -14,6 +14,7 @@ export const AUDIT_EVENT_TYPES = [
   'account.erasure.runbook',
   'email.change.admin',
   'audit.cleanup.run',
+  'article.bulk_import',
 ] as const;
 export type AuditEventType = (typeof AUDIT_EVENT_TYPES)[number];
 
