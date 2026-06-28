@@ -17,7 +17,10 @@ import { writeAuditLog } from './audit-log';
  */
 const RETENTION_DAYS = 90;
 
-export async function cleanupExpiredAuditLogs(payload: Payload): Promise<number> {
+export async function cleanupExpiredAuditLogs(
+  payload: Payload,
+  extraCounts?: { orphanAvatarsDeleted?: number; submissionsDeleted?: number },
+): Promise<number> {
   const cutoffMs = Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000;
   const cutoff = new Date(cutoffMs).toISOString();
 
@@ -30,7 +33,11 @@ export async function cleanupExpiredAuditLogs(payload: Payload): Promise<number>
 
   await writeAuditLog(payload, {
     eventType: 'audit.cleanup.run',
-    metadata: { deletedCount, retentionDays: RETENTION_DAYS },
+    metadata: {
+      deletedCount,
+      retentionDays: RETENTION_DAYS,
+      ...(extraCounts ?? {}),
+    },
   });
 
   return deletedCount;

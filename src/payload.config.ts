@@ -55,6 +55,11 @@ export default buildConfig({
     push: false,
   }),
   sharp,
+  // Pre-upload 5 MB max file-size (global Busboy limit; currently only Media
+  // is upload-enabled, so the practical effect is the avatar pipeline).
+  upload: {
+    limits: { fileSize: 5 * 1024 * 1024 },
+  },
   email: buildEmailConfig(),
   plugins: (() => {
     const storage = buildStorageConfig()

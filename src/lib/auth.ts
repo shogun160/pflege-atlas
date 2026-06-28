@@ -19,6 +19,7 @@ export interface Session {
   role: Role;
   disabled: boolean;
   avatar?: number | null;
+  avatarUrl?: string | null;
 }
 
 async function payloadInstance() {
@@ -56,16 +57,33 @@ export async function getSession(): Promise<Session | null> {
     if (!user) return null;
     const u = user as {
       id: number; email: string; displayName?: string; role?: Role;
-      disabled?: boolean; avatar?: number | { id: number } | null;
+      disabled?: boolean;
+      avatar?: number | { id: number; url?: string | null } | null;
     };
-    const avatar = typeof u.avatar === 'object' && u.avatar ? u.avatar.id : (u.avatar ?? null);
+    const avatarRel = u.avatar;
+    const avatarId =
+      typeof avatarRel === 'object' && avatarRel ? avatarRel.id : (avatarRel ?? null);
+    let avatarUrl: string | null = null;
+    if (typeof avatarRel === 'object' && avatarRel?.url) {
+      avatarUrl = avatarRel.url;
+    } else if (typeof avatarRel === 'number') {
+      try {
+        const media = await payload.findByID({
+          collection: 'media', id: avatarRel, depth: 0,
+        });
+        avatarUrl = (media as { url?: string | null }).url ?? null;
+      } catch {
+        avatarUrl = null;
+      }
+    }
     return {
       id: u.id,
       email: u.email,
       displayName: u.displayName ?? '',
       role: u.role ?? 'contributor',
       disabled: u.disabled ?? false,
-      avatar,
+      avatar: avatarId,
+      avatarUrl,
     };
   } catch (err) {
     if (process.env.NODE_ENV !== 'test') {

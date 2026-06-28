@@ -6,6 +6,7 @@ import {
   saveProfileFormAction,
   type ProfileFormState,
 } from '@/app/(frontend)/mein-bereich/actions';
+import { AvatarUploadWidget } from '@/components/AvatarUploadWidget';
 
 const PFLEGE_OPTIONS = [
   { value: '', label: '— bitte wählen —' },
@@ -60,6 +61,9 @@ export function ProfileEditForm({
     bio?: string | null;
     pflegerischeRolle?: string | null;
     bundesland?: string | null;
+    avatar?: number | null;
+    avatarUrl?: string | null;
+    email: string;
   };
 }) {
   const [state, formAction] = useActionState(
@@ -68,6 +72,12 @@ export function ProfileEditForm({
   );
   return (
     <form action={formAction} className="space-y-4">
+      <AvatarUploadWidget
+        currentAvatarUrl={user.avatarUrl ?? null}
+        currentAvatarId={user.avatar ?? null}
+        displayName={user.displayName ?? ''}
+        email={user.email}
+      />
       <div>
         <label htmlFor="displayName" className="mb-1 block text-sm font-medium">
           Anzeigename
@@ -133,10 +143,6 @@ export function ProfileEditForm({
           ))}
         </select>
       </div>
-      <p className="text-xs text-stone-500">
-        Avatar-Upload kommt mit V1.6.1. Datei-Upload via Admin-UI ist bereits
-        möglich.
-      </p>
       {state.saved && (
         <p role="status" className="text-sm text-emerald-700">
           Profil gespeichert.

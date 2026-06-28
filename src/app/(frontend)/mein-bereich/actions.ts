@@ -18,11 +18,19 @@ export async function saveProfileFormAction(
   _prev: ProfileFormState,
   formData: FormData,
 ): Promise<ProfileFormState> {
+  const avatarRaw = formData.get('avatar');
+  const avatarIdParsed =
+    typeof avatarRaw === 'string' && avatarRaw.length > 0
+      ? Number.parseInt(avatarRaw, 10)
+      : null;
+  const avatar = Number.isFinite(avatarIdParsed) ? avatarIdParsed : null;
+
   const patch = {
     displayName: String(formData.get('displayName') ?? '') || undefined,
     bio: (formData.get('bio') as string | null) ?? undefined,
     pflegerischeRolle: (formData.get('pflegerischeRolle') as string | null) || null,
     bundesland: (formData.get('bundesland') as string | null) || null,
+    avatar,
   };
   const result = await updateOwnProfileAction(patch);
   if (!result.ok) return { error: result.error };

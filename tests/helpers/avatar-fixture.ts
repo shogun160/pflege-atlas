@@ -4,7 +4,7 @@ import type { Payload } from 'payload';
 // `image-size` which validates the IHDR chunk, so an 8-byte signature
 // alone is rejected as "Invalid PNG". Generated once and inlined to keep
 // the fixture deterministic & dependency-free.
-const MINIMAL_PNG = Buffer.from([
+export const MINIMAL_PNG = Buffer.from([
   137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0,
   0, 0, 1, 8, 2, 0, 0, 0, 144, 119, 83, 222, 0, 0, 0, 13, 73, 68, 65, 84, 120,
   156, 99, 248, 255, 255, 63, 3, 0, 8, 252, 2, 254, 167, 154, 160, 160, 0, 0,

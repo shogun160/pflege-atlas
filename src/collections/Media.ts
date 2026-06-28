@@ -1,7 +1,37 @@
-import type { Access, CollectionConfig, Where } from 'payload';
+import type {
+  Access,
+  CollectionBeforeOperationHook,
+  CollectionConfig,
+  File as PayloadFile,
+  Where,
+} from 'payload';
+import sharp from 'sharp';
 import { hasRolePermission, type Role } from '@/lib/auth-permissions';
 
 type MediaAuthUser = { role?: Role; disabled?: boolean; id?: number };
+
+const resizeAvatarHook: CollectionBeforeOperationHook<'media'> = async ({
+  args,
+  operation,
+  req,
+}) => {
+  if (operation !== 'create' && operation !== 'update') return args;
+  const data = args.data as { purpose?: string } | undefined;
+  if (data?.purpose !== 'avatar') return args;
+  const file = req.file as PayloadFile | undefined;
+  if (!file?.data || !file.mimetype?.startsWith('image/')) return args;
+  const resized = await sharp(file.data)
+    .resize(256, 256, { fit: 'cover', position: 'center' })
+    .jpeg({ quality: 85, mozjpeg: true })
+    .toBuffer();
+  req.file = {
+    data: resized,
+    mimetype: 'image/jpeg',
+    name: file.name?.replace(/\.[^.]+$/, '.jpg') ?? 'avatar.jpg',
+    size: resized.length,
+  };
+  return args;
+};
 
 const readAccess: Access = ({ req: { user } }) => {
   // article_image + other: public
@@ -55,6 +85,7 @@ export const Media: CollectionConfig = {
     },
   },
   hooks: {
+    beforeOperation: [resizeAvatarHook],
     beforeChange: [
       ({ data, req, operation }) => {
         if (!data) return data;
@@ -90,5 +121,7 @@ export const Media: CollectionConfig = {
       admin: { readOnly: true },
     },
   ],
-  upload: true,
+  upload: {
+    mimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
+  },
 };
