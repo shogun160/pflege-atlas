@@ -16,9 +16,11 @@ export type UnzipResult =
   | { ok: false; error: string };
 
 function isSafePath(name: string): boolean {
-  // Reject path traversal, absolute paths, and any directory component.
-  // We only accept basenames like "a.md" — files in subdirectories are
-  // silently skipped (no recursion into the zip tree).
+  // Defence in depth: yauzl's own validateFileName() (with decodeStrings: true,
+  // the default) already rejects '..' segments and absolute paths before
+  // emitting the 'entry' event. This function is kept as a redundant guard
+  // in case decodeStrings ever changes or yauzl's behavior shifts. It also
+  // makes the security intent explicit at the call-site.
   if (name.includes('..')) return false;
   if (name.startsWith('/') || name.match(/^[a-zA-Z]:[\\/]/)) return false;
   return true;
@@ -29,6 +31,9 @@ function isMarkdown(name: string): boolean {
 }
 
 export async function unzipBundle(buffer: Buffer, limits: UnzipLimits): Promise<UnzipResult> {
+  if (limits.maxEntries <= 0 || limits.maxFileBytes <= 0 || limits.maxTotalBytes <= 0) {
+    return { ok: false, error: 'Ungültige Limits konfiguriert (positive Zahlen erwartet).' };
+  }
   return new Promise((resolve) => {
     yauzl.fromBuffer(buffer, { lazyEntries: true }, (err, zip) => {
       if (err || !zip) {

@@ -130,4 +130,28 @@ describe('unzipBundle', () => {
     const result = await unzipBundle(buf, limits);
     expect(result.ok).toBe(false);
   });
+
+  it('rejects when accumulated total size exceeds maxTotalBytes', async () => {
+    // Two files, each just under maxFileBytes (so individual check passes),
+    // but together over maxTotalBytes.
+    const halfFile = 'x'.repeat(Math.floor(limits.maxFileBytes * 0.6));
+    const tightTotal: UnzipLimits = {
+      ...limits,
+      maxTotalBytes: limits.maxFileBytes, // total ≈ 256 KB → 2 × 60% > limit
+    };
+    const buf = await makeZip([
+      { name: 'a.md', content: halfFile },
+      { name: 'b.md', content: halfFile },
+    ]);
+    const result = await unzipBundle(buf, tightTotal);
+    expect(result.ok).toBe(false);
+  });
+
+  it('rejects zero or negative limits', async () => {
+    const buf = await makeZip([{ name: 'a.md', content: 'x' }]);
+    const zero = await unzipBundle(buf, { maxEntries: 0, maxFileBytes: 100, maxTotalBytes: 100 });
+    expect(zero.ok).toBe(false);
+    const negative = await unzipBundle(buf, { maxEntries: 10, maxFileBytes: -1, maxTotalBytes: 100 });
+    expect(negative.ok).toBe(false);
+  });
 });
