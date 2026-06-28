@@ -1,10 +1,30 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+
+const modalProps = vi.hoisted(() => ({
+  value: null as null | {
+    file: File;
+    onConfirm: (b: Blob) => void;
+    onCancel: () => void;
+  },
+}));
+vi.mock('@/components/AvatarCropModal', () => ({
+  AvatarCropModal: (props: {
+    file: File;
+    onConfirm: (b: Blob) => void;
+    onCancel: () => void;
+  }) => {
+    modalProps.value = props;
+    return <div data-testid="avatar-crop-modal" />;
+  },
+}));
+
 import { AvatarUploadWidget } from '@/components/AvatarUploadWidget';
 
 describe('AvatarUploadWidget', () => {
   beforeEach(() => {
+    modalProps.value = null;
     vi.restoreAllMocks();
   });
 
@@ -114,6 +134,9 @@ describe('AvatarUploadWidget', () => {
     // Upload new
     const file = new File(['x'], 'new.png', { type: 'image/png' });
     await user.upload(screen.getByLabelText(/profilbild auswählen/i), file);
+    // Crop-Confirm dispatchen (post-refactor flow)
+    modalProps.value!.onConfirm(new Blob(['cropped'], { type: 'image/jpeg' }));
+    await new Promise((r) => setTimeout(r, 10));
     expect(container.querySelector('input[name="avatar"]')).toHaveAttribute('value', '99');
 
     // Reset
@@ -143,6 +166,8 @@ describe('AvatarUploadWidget', () => {
 
     const file = new File(['x'], 'new.png', { type: 'image/png' });
     await user.upload(screen.getByLabelText(/profilbild auswählen/i), file);
+    modalProps.value!.onConfirm(new Blob(['cropped'], { type: 'image/jpeg' }));
+    await new Promise((r) => setTimeout(r, 10));
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [, init] = fetchSpy.mock.calls[0]!;
@@ -157,5 +182,93 @@ describe('AvatarUploadWidget', () => {
     const parsed = JSON.parse(payloadJson as string) as { alt: string; purpose: string };
     expect(parsed.purpose).toBe('avatar');
     expect(parsed.alt).toMatch(/Anna Musterfrau/);
+  });
+
+  it('file pick opens the crop modal and does NOT start upload', async () => {
+    const user = userEvent.setup();
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+
+    render(
+      <AvatarUploadWidget
+        currentAvatarUrl={null}
+        currentAvatarId={null}
+        displayName="Anna"
+        email="anna@test.local"
+      />,
+    );
+
+    const file = new File(['x'], 'a.png', { type: 'image/png' });
+    await user.upload(screen.getByLabelText(/profilbild auswählen/i), file);
+
+    expect(screen.getByTestId('avatar-crop-modal')).toBeInTheDocument();
+    expect(modalProps.value?.file).toBe(file);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('crop confirm uploads the cropped Blob via _payload multipart', async () => {
+    const user = userEvent.setup();
+    const fakeJson = { doc: { id: 11, url: 'https://r2.example/cropped.jpg' } };
+    const fakeRes = {
+      ok: true,
+      json: async () => fakeJson,
+      text: async () => JSON.stringify(fakeJson),
+    } as unknown as Response;
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(fakeRes);
+
+    const { container } = render(
+      <AvatarUploadWidget
+        currentAvatarUrl={null}
+        currentAvatarId={null}
+        displayName="Anna"
+        email="anna@test.local"
+      />,
+    );
+
+    const file = new File(['x'], 'a.png', { type: 'image/png' });
+    await user.upload(screen.getByLabelText(/profilbild auswählen/i), file);
+
+    const blob = new Blob(['cropped'], { type: 'image/jpeg' });
+    modalProps.value!.onConfirm(blob);
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [, init] = fetchSpy.mock.calls[0]!;
+    const fd = init?.body as FormData;
+    const uploaded = fd.get('file') as Blob;
+    expect(uploaded).toBeInstanceOf(Blob);
+    expect(uploaded.type).toBe('image/jpeg');
+    // _payload-JSON struktur muss bestehen bleiben (PR #42 Regression-Guard)
+    const payloadJson = fd.get('_payload');
+    expect(typeof payloadJson).toBe('string');
+    const parsed = JSON.parse(payloadJson as string) as { purpose: string };
+    expect(parsed.purpose).toBe('avatar');
+    expect(container.querySelector('input[name="avatar"]')).toHaveAttribute('value', '11');
+    // Modal ist nach Confirm wieder weg
+    expect(screen.queryByTestId('avatar-crop-modal')).not.toBeInTheDocument();
+  });
+
+  it('crop cancel removes modal, does NOT upload, resets file input', async () => {
+    const user = userEvent.setup();
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+
+    render(
+      <AvatarUploadWidget
+        currentAvatarUrl={null}
+        currentAvatarId={null}
+        displayName="Anna"
+        email="anna@test.local"
+      />,
+    );
+
+    const fileInput = screen.getByLabelText(/profilbild auswählen/i) as HTMLInputElement;
+    const file = new File(['x'], 'a.png', { type: 'image/png' });
+    await user.upload(fileInput, file);
+
+    modalProps.value!.onCancel();
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(screen.queryByTestId('avatar-crop-modal')).not.toBeInTheDocument();
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(fileInput.value).toBe('');
   });
 });

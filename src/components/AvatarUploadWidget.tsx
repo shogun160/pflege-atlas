@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, type ChangeEvent } from 'react';
+import { AvatarCropModal } from './AvatarCropModal';
 
 interface AvatarUploadWidgetProps {
   currentAvatarUrl: string | null;
@@ -13,7 +14,8 @@ type LocalState =
   | { kind: 'persisted'; id: number; url: string }
   | { kind: 'replaced'; id: number; url: string }
   | { kind: 'removed' }
-  | { kind: 'none' };
+  | { kind: 'none' }
+  | { kind: 'cropping'; file: File };
 
 export function AvatarUploadWidget(props: AvatarUploadWidgetProps) {
   const initial: LocalState =
@@ -37,10 +39,15 @@ export function AvatarUploadWidget(props: AvatarUploadWidgetProps) {
       setError('Nur JPEG, PNG oder WebP erlaubt.');
       return;
     }
+    setState({ kind: 'cropping', file });
+  }
+
+  async function handleCropConfirm(blob: Blob) {
     setUploading(true);
+    setError(null);
     try {
       const fd = new FormData();
-      fd.append('file', file);
+      fd.append('file', blob, 'avatar.jpg');
       fd.append(
         '_payload',
         JSON.stringify({
@@ -61,10 +68,16 @@ export function AvatarUploadWidget(props: AvatarUploadWidgetProps) {
       setState({ kind: 'replaced', id: json.doc.id, url: json.doc.url });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload fehlgeschlagen.');
+      setState({ kind: 'none' });
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = '';
     }
+  }
+
+  function handleCropCancel() {
+    setState((s) => (s.kind === 'cropping' ? { kind: 'none' } : s));
+    if (fileRef.current) fileRef.current.value = '';
   }
 
   function handleRemove() {
@@ -154,6 +167,13 @@ export function AvatarUploadWidget(props: AvatarUploadWidgetProps) {
           )}
         </div>
       </div>
+      {state.kind === 'cropping' && (
+        <AvatarCropModal
+          file={state.file}
+          onConfirm={handleCropConfirm}
+          onCancel={handleCropCancel}
+        />
+      )}
     </div>
   );
 }
