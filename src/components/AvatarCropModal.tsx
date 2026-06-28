@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, type KeyboardEvent } from 'react';
+import { useEffect, useState, type KeyboardEvent } from 'react';
 import Cropper, { type Area } from 'react-easy-crop';
 
 interface AvatarCropModalProps {
@@ -14,7 +14,7 @@ export function AvatarCropModal({ file, onConfirm: _onConfirm, onCancel }: Avata
   const [zoom, setZoom] = useState(1);
   const [_pixels, setPixels] = useState<Area | null>(null);
 
-  const imageUrl = useMemo(() => URL.createObjectURL(file), [file]);
+  const [imageUrl] = useState(() => URL.createObjectURL(file));
 
   useEffect(() => {
     return () => URL.revokeObjectURL(imageUrl);
