@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { BulkArticleImport } from '@/components/admin/BulkArticleImport';
 import type { ImportRow, ImportResultRow } from '@/lib/article-import/types';
@@ -27,13 +27,16 @@ const sampleResult: ImportResultRow = {
   adminUrl: '/admin/collections/articles/42',
 };
 
+type ParseFilesMock = Mock<(formData: FormData) => Promise<ImportRow[]>>;
+type RunImportMock = Mock<(rows: ImportRow[]) => Promise<ImportResultRow[]>>;
+
 describe('BulkArticleImport', () => {
-  let parseFilesAction: ReturnType<typeof vi.fn>;
-  let runImportAction: ReturnType<typeof vi.fn>;
+  let parseFilesAction: ParseFilesMock;
+  let runImportAction: RunImportMock;
 
   beforeEach(() => {
-    parseFilesAction = vi.fn().mockResolvedValue([sampleRow]);
-    runImportAction = vi.fn().mockResolvedValue([sampleResult]);
+    parseFilesAction = vi.fn(async () => [sampleRow]) as ParseFilesMock;
+    runImportAction = vi.fn(async () => [sampleResult]) as RunImportMock;
   });
 
   it('renders the idle state with drag-drop zone', () => {
