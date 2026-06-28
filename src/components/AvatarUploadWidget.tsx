@@ -123,9 +123,19 @@ export function AvatarUploadWidget(props: AvatarUploadWidgetProps) {
           onClick={() => fileRef.current?.click()}
           disabled={uploading}
           aria-label="Profilbild ändern"
-          className="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          className="group relative rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
         >
           {preview}
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-full text-white opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100"
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.45)' }}
+          >
+            <svg viewBox="0 0 20 20" fill="currentColor" className="h-7 w-7">
+              <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
+              <path d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+            </svg>
+          </span>
         </button>
         <div className="space-y-2">
           <input
@@ -134,9 +144,22 @@ export function AvatarUploadWidget(props: AvatarUploadWidgetProps) {
             accept="image/*"
             onChange={handleFileSelected}
             disabled={uploading}
-            className="block text-sm"
+            className="sr-only"
             aria-label="Profilbild auswählen"
+            tabIndex={-1}
           />
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+            className="inline-flex items-center gap-2 rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+              <path d="M9.25 13.75a.75.75 0 001.5 0V4.66l3.22 3.22a.75.75 0 001.06-1.06l-4.5-4.5a.75.75 0 00-1.06 0l-4.5 4.5a.75.75 0 001.06 1.06l3.22-3.22v9.09z" />
+              <path d="M3.5 14.75a.75.75 0 011.5 0v1.75c0 .14.11.25.25.25h9.5a.25.25 0 00.25-.25v-1.75a.75.75 0 011.5 0v1.75A1.75 1.75 0 0114.75 18.25h-9.5A1.75 1.75 0 013.5 16.5v-1.75z" />
+            </svg>
+            Bild hochladen
+          </button>
           <input type="hidden" name="avatar" value={hiddenValue} />
           {(state.kind === 'persisted' || state.kind === 'replaced') && (
             <button
