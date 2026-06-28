@@ -115,7 +115,7 @@ export function BulkArticleImport({ parseFilesAction, runImportAction }: Props) 
           hidden
           onChange={(e) => onFilesSelected(e.target.files)}
         />
-        {error && <p style={{ color: 'var(--theme-error-500, #c00)' }}>{error}</p>}
+        {error && <p role="alert" style={{ color: 'var(--theme-error-500, #c00)' }}>{error}</p>}
       </div>
     );
   }
@@ -124,8 +124,8 @@ export function BulkArticleImport({ parseFilesAction, runImportAction }: Props) 
     return (
       <div className="bulk-import" data-phase={phase}>
         <h1>Vorschau ({rows.length} Datei{rows.length === 1 ? '' : 'en'})</h1>
-        <p>{readyCount} Artikel werden importiert.</p>
-        {error && <p style={{ color: 'var(--theme-error-500, #c00)' }}>{error}</p>}
+        <p aria-live="polite">{readyCount} Artikel werden importiert.</p>
+        {error && <p role="alert" style={{ color: 'var(--theme-error-500, #c00)' }}>{error}</p>}
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr>
@@ -151,7 +151,9 @@ export function BulkArticleImport({ parseFilesAction, runImportAction }: Props) 
           <button type="button" onClick={onConfirmImport} disabled={readyCount === 0 || phase === 'importing'}>
             {phase === 'importing' ? 'Importiere…' : `Import bestätigen (${readyCount})`}
           </button>
-          <button type="button" onClick={onReset}>Abbrechen</button>
+          <button type="button" onClick={onReset} disabled={phase === 'importing'}>
+            Abbrechen
+          </button>
         </div>
       </div>
     );

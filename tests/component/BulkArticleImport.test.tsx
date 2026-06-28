@@ -82,4 +82,23 @@ describe('BulkArticleImport', () => {
     await waitFor(() => screen.getByRole('button', { name: /import bestätigen/i }));
     expect(screen.getByRole('button', { name: /import bestätigen/i })).toBeDisabled();
   });
+
+  it('disables Abbrechen during import to avoid stale-state race', async () => {
+    // runImportAction never resolves so we stay in 'importing' phase
+    const slowImport = vi.fn(() => new Promise<ImportResultRow[]>(() => {}));
+    render(
+      <BulkArticleImport parseFilesAction={parseFilesAction} runImportAction={slowImport} />,
+    );
+    const file = new File(['---\ntitle: x\n---'], 'a.md', { type: 'text/markdown' });
+    fireEvent.change(screen.getByTestId('bulk-import-file-input'), {
+      target: { files: [file] },
+    });
+    await waitFor(() => screen.getByRole('button', { name: /import bestätigen/i }));
+    fireEvent.click(screen.getByRole('button', { name: /import bestätigen/i }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /importiere/i })).toBeInTheDocument(),
+    );
+    // While importing, the Abbrechen button should be disabled
+    expect(screen.getByRole('button', { name: /abbrechen/i })).toBeDisabled();
+  });
 });
