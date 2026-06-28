@@ -14,13 +14,16 @@ export function AvatarCropModal({ file, onConfirm, onCancel }: AvatarCropModalPr
   const [zoom, setZoom] = useState(1);
   const [pixels, setPixels] = useState<Area | null>(null);
 
-  const [imageUrl] = useState(() => URL.createObjectURL(file));
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
 
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    return () => URL.revokeObjectURL(imageUrl);
-  }, [imageUrl]);
+    const url = URL.createObjectURL(file);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- objectURL lifecycle: createObjectURL + setState + revoke must be set up + torn down atomically. useState lazy-init breaks under React 19 StrictMode (cleanup revokes URL after first mount, state isn't re-initialized on remount → stale revoked URL passed to <img>).
+    setImageUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
 
   function handleKeyDown(e: KeyboardEvent<HTMLDivElement>) {
     if (e.key === 'Escape') onCancel();
@@ -50,17 +53,19 @@ export function AvatarCropModal({ file, onConfirm, onCancel }: AvatarCropModalPr
     >
       <div className="w-[95vw] max-w-[480px] rounded-lg bg-white p-4 shadow-xl">
         <div className="relative h-[320px] w-full bg-stone-100">
-          <Cropper
-            image={imageUrl}
-            crop={crop}
-            zoom={zoom}
-            aspect={1}
-            cropShape="round"
-            showGrid={false}
-            onCropChange={setCrop}
-            onZoomChange={setZoom}
-            onCropComplete={(_, p) => setPixels(p)}
-          />
+          {imageUrl && (
+            <Cropper
+              image={imageUrl}
+              crop={crop}
+              zoom={zoom}
+              aspect={1}
+              cropShape="round"
+              showGrid={false}
+              onCropChange={setCrop}
+              onZoomChange={setZoom}
+              onCropComplete={(_, p) => setPixels(p)}
+            />
+          )}
         </div>
         <label className="mt-4 block text-sm">
           Zoom
