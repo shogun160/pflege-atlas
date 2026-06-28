@@ -31,6 +31,7 @@ export function AvatarCropModal({ file, onConfirm, onCancel }: AvatarCropModalPr
     setBusy(true);
     try {
       const blob = await renderCroppedBlob(imageUrl, pixels);
+      // no setBusy(false) on success — parent unmounts us when its state transitions away from 'cropping'.
       onConfirm(blob);
     } catch (err) {
       console.error('Avatar crop failed:', err);

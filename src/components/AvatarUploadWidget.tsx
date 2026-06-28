@@ -157,7 +157,7 @@ export function AvatarUploadWidget(props: AvatarUploadWidgetProps) {
             </p>
           )}
           <p className="text-xs text-stone-500">
-            Max. 5 MB. JPEG, PNG oder WebP. Wird auf 256×256 verkleinert.
+            Max. 5 MB. JPEG, PNG oder WebP. Wird zugeschnitten und als Profilbild (256×256) gespeichert.
           </p>
           {uploading && <p className="text-sm text-stone-700">Lade hoch …</p>}
           {error && (

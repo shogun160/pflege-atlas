@@ -49,7 +49,6 @@ describe('AvatarCropModal', () => {
   });
 
   it('Zoom-Slider has range 1-3 and updates Cropper zoom prop', async () => {
-    const user = userEvent.setup();
     render(<AvatarCropModal file={makeFile()} onConfirm={vi.fn()} onCancel={vi.fn()} />);
     const slider = screen.getByLabelText('Zoom') as HTMLInputElement;
     expect(slider.min).toBe('1');
@@ -57,7 +56,6 @@ describe('AvatarCropModal', () => {
     expect(cropperProps.value?.zoom).toBe(1);
     fireEvent.change(slider, { target: { value: '2.5' } });
     expect(cropperProps.value?.zoom).toBe(2.5);
-    void user; // userEvent imported elsewhere; suppress unused
   });
 
   it('Übernehmen is disabled until onCropComplete fires', () => {
@@ -82,28 +80,43 @@ describe('AvatarCropModal', () => {
       drawImage: vi.fn(),
     } as unknown as CanvasRenderingContext2D);
     // Skip the actual <img>-loading: stub loadImage indirection via Image mock.
+    // configurable:true + try/finally restore — keeps the prototype clean even if a
+    // future test in this file does its own image loading.
+    const originalSrcDescriptor = Object.getOwnPropertyDescriptor(
+      globalThis.Image.prototype,
+      'src',
+    );
     Object.defineProperty(globalThis.Image.prototype, 'src', {
+      configurable: true,
       set() {
         setTimeout(() => this.onload?.(new Event('load')), 0);
       },
     });
 
-    render(<AvatarCropModal file={makeFile()} onConfirm={onConfirm} onCancel={vi.fn()} />);
+    try {
+      render(<AvatarCropModal file={makeFile()} onConfirm={onConfirm} onCancel={vi.fn()} />);
 
-    // Simulate the Cropper firing onCropComplete with pixel-area.
-    (cropperProps.value?.onCropComplete as ((...args: unknown[]) => void) | undefined)?.(
-      { x: 0, y: 0, width: 100, height: 100 },
-      { x: 10, y: 10, width: 200, height: 200 },
-    );
+      // Simulate the Cropper firing onCropComplete with pixel-area.
+      (cropperProps.value?.onCropComplete as ((...args: unknown[]) => void) | undefined)?.(
+        { x: 0, y: 0, width: 100, height: 100 },
+        { x: 10, y: 10, width: 200, height: 200 },
+      );
 
-    await user.click(screen.getByRole('button', { name: /übernehmen/i }));
+      await user.click(screen.getByRole('button', { name: /übernehmen/i }));
 
-    // wait microtask for the canvas/blob async chain
-    await new Promise((r) => setTimeout(r, 10));
+      // wait microtask for the canvas/blob async chain
+      await new Promise((r) => setTimeout(r, 10));
 
-    expect(onConfirm).toHaveBeenCalledTimes(1);
-    const blob = onConfirm.mock.calls[0]![0] as Blob;
-    expect(blob).toBeInstanceOf(Blob);
-    expect(blob.type).toBe('image/jpeg');
+      expect(onConfirm).toHaveBeenCalledTimes(1);
+      const blob = onConfirm.mock.calls[0]![0] as Blob;
+      expect(blob).toBeInstanceOf(Blob);
+      expect(blob.type).toBe('image/jpeg');
+    } finally {
+      if (originalSrcDescriptor) {
+        Object.defineProperty(globalThis.Image.prototype, 'src', originalSrcDescriptor);
+      } else {
+        delete (globalThis.Image.prototype as unknown as { src?: unknown }).src;
+      }
+    }
   });
 });
