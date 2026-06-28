@@ -121,4 +121,48 @@ describe('AvatarUploadWidget', () => {
     await user.click(resetBtn);
     expect(container.querySelector('input[name="avatar"]')).toHaveAttribute('value', '42');
   });
+
+  it('sends alt + purpose via _payload JSON field (Payload-3.x REST contract)', async () => {
+    const user = userEvent.setup();
+    const fakeJson = { doc: { id: 99, url: 'https://r2.example/new.jpg' } };
+    const fakeRes = {
+      ok: true,
+      json: async () => fakeJson,
+      text: async () => JSON.stringify(fakeJson),
+    } as unknown as Response;
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(fakeRes);
+
+    render(
+      <AvatarUploadWidget
+        currentAvatarUrl={null}
+        currentAvatarId={null}
+        displayName="Anna Test"
+        email="anna@test.local"
+      />,
+    );
+
+    const file = new File(['x'], 'new.png', { type: 'image/png' });
+    await user.upload(screen.getByLabelText(/profilbild auswählen/i), file);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(url).toBe('/api/media');
+    const body = (init as RequestInit).body as FormData;
+    expect(body).toBeInstanceOf(FormData);
+
+    // file MUST be present (Payload reads req.file from this field)
+    expect(body.get('file')).toBeInstanceOf(File);
+
+    // _payload MUST be a JSON string containing alt + purpose
+    // (Payload-3.x ignores top-level form fields; only _payload populates req.data)
+    const payloadField = body.get('_payload');
+    expect(typeof payloadField).toBe('string');
+    const parsed = JSON.parse(payloadField as string);
+    expect(parsed.alt).toBe('Profilbild von Anna Test');
+    expect(parsed.purpose).toBe('avatar');
+
+    // negative-assertion: top-level alt/purpose MUST NOT be set (would be silently ignored)
+    expect(body.get('alt')).toBeNull();
+    expect(body.get('purpose')).toBeNull();
+  });
 });

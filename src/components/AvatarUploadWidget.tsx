@@ -39,10 +39,19 @@ export function AvatarUploadWidget(props: AvatarUploadWidgetProps) {
     }
     setUploading(true);
     try {
+      // Payload 3.x REST upload expects non-file fields in a single `_payload`
+      // JSON string. Top-level form fields are silently ignored (see
+      // addDataAndFileToRequest.js:49). Integration tests use the Local API
+      // and don't exercise this path — manual smoke caught the missing alt.
       const fd = new FormData();
       fd.append('file', file);
-      fd.append('alt', `Profilbild von ${props.displayName || props.email}`);
-      fd.append('purpose', 'avatar');
+      fd.append(
+        '_payload',
+        JSON.stringify({
+          alt: `Profilbild von ${props.displayName || props.email}`,
+          purpose: 'avatar',
+        }),
+      );
       const res = await fetch('/api/media', {
         method: 'POST',
         body: fd,
