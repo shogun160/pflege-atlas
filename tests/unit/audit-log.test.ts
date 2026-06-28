@@ -161,11 +161,6 @@ describe('audit-log helper', () => {
       expect(AUDIT_EVENT_TYPES).toContain('login.success');
       expect(AUDIT_EVENT_TYPES).toContain('account.erasure.runbook');
       expect(AUDIT_EVENT_TYPES).toContain('audit.cleanup.run');
-    });
-  });
-
-  describe('article.bulk_import event type', () => {
-    it('is included in AUDIT_EVENT_TYPES', () => {
       expect(AUDIT_EVENT_TYPES).toContain('article.bulk_import');
     });
   });
