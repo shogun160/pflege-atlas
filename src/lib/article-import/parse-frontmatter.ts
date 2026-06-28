@@ -120,15 +120,35 @@ export function parseFrontmatter(input: string): FrontmatterResult {
   } else if (obj.standardsBound !== undefined) {
     warnings.push(
       softIssue(
-        'frontmatter-unknown-field',
+        'frontmatter-field-type-error',
         `\`standardsBound\` ignoriert (kein Boolean): ${JSON.stringify(obj.standardsBound)}`,
         'standardsBound',
       ),
     );
   }
-  if (Array.isArray(obj.authors)) {
-    const authors = obj.authors.filter((a): a is string => typeof a === 'string');
-    if (authors.length > 0) data.authors = authors;
+  if (obj.authors !== undefined) {
+    if (!Array.isArray(obj.authors)) {
+      warnings.push(
+        softIssue(
+          'frontmatter-field-type-error',
+          `\`authors\` ignoriert (kein Array): ${JSON.stringify(obj.authors)}`,
+          'authors',
+        ),
+      );
+    } else {
+      const authors = obj.authors.filter((a): a is string => typeof a === 'string');
+      const dropped = obj.authors.length - authors.length;
+      if (dropped > 0) {
+        warnings.push(
+          softIssue(
+            'frontmatter-field-type-error',
+            `\`authors\`: ${dropped} Einträge ignoriert (kein String).`,
+            'authors',
+          ),
+        );
+      }
+      if (authors.length > 0) data.authors = authors;
+    }
   }
   if (typeof obj.lastReviewedAt === 'string') {
     if (ISO_DATE.test(obj.lastReviewedAt)) {

@@ -114,4 +114,34 @@ y`;
       result.warnings.some((w) => w.code === 'last-reviewed-at-invalid-format'),
     ).toBe(true);
   });
+
+  it('emits frontmatter-field-type-error warning for standardsBound with non-boolean value', () => {
+    const input = `---
+title: A
+intent: bedside
+summary: ok
+standardsBound: "yes"
+---
+## Definition
+y`;
+    const result = parseFrontmatter(input);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.standardsBound).toBeUndefined();
+    expect(
+      result.warnings.some(
+        (w) => w.code === 'frontmatter-field-type-error' && w.field === 'standardsBound',
+      ),
+    ).toBe(true);
+  });
+
+  it('parses successfully with CRLF line endings', () => {
+    const lf = `---\ntitle: Hello\nintent: bedside\nsummary: A short summary.\n---\n\n## Definition\n\nBody text.`;
+    const crlf = lf.replace(/\n/g, '\r\n');
+    const result = parseFrontmatter(crlf);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.title).toBe('Hello');
+    expect(result.data.intent).toBe('bedside');
+  });
 });

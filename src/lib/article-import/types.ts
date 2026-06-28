@@ -10,6 +10,7 @@ export type IssueCode =
   | 'file-too-large'
   | 'markdown-conversion-failed'
   | 'author-unknown'
+  | 'frontmatter-field-type-error'
   | 'frontmatter-unknown-field'
   | 'last-reviewed-at-invalid-format';
 
