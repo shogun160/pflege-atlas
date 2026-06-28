@@ -9,12 +9,14 @@ interface AvatarCropModalProps {
   onCancel: () => void;
 }
 
-export function AvatarCropModal({ file, onConfirm: _onConfirm, onCancel }: AvatarCropModalProps) {
+export function AvatarCropModal({ file, onConfirm, onCancel }: AvatarCropModalProps) {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
-  const [_pixels, setPixels] = useState<Area | null>(null);
+  const [pixels, setPixels] = useState<Area | null>(null);
 
   const [imageUrl] = useState(() => URL.createObjectURL(file));
+
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     return () => URL.revokeObjectURL(imageUrl);
@@ -22,6 +24,18 @@ export function AvatarCropModal({ file, onConfirm: _onConfirm, onCancel }: Avata
 
   function handleKeyDown(e: KeyboardEvent<HTMLDivElement>) {
     if (e.key === 'Escape') onCancel();
+  }
+
+  async function handleConfirm() {
+    if (!pixels || !imageUrl) return;
+    setBusy(true);
+    try {
+      const blob = await renderCroppedBlob(imageUrl, pixels);
+      onConfirm(blob);
+    } catch (err) {
+      console.error('Avatar crop failed:', err);
+      setBusy(false);
+    }
   }
 
   return (
@@ -68,8 +82,42 @@ export function AvatarCropModal({ file, onConfirm: _onConfirm, onCancel }: Avata
           >
             Abbrechen
           </button>
+          <button
+            type="button"
+            onClick={handleConfirm}
+            disabled={busy || !pixels}
+            className="rounded bg-brand px-4 py-2 text-white disabled:opacity-50"
+          >
+            {busy ? 'Verarbeite …' : 'Übernehmen'}
+          </button>
         </div>
       </div>
     </div>
   );
+}
+
+async function renderCroppedBlob(url: string, area: Area): Promise<Blob> {
+  const img = await loadImage(url);
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Canvas-2D-Context nicht verfügbar');
+  ctx.drawImage(img, area.x, area.y, area.width, area.height, 0, 0, 512, 512);
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => (blob ? resolve(blob) : reject(new Error('toBlob returned null'))),
+      'image/jpeg',
+      0.9,
+    );
+  });
+}
+
+function loadImage(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('Image-load fehlgeschlagen'));
+    img.src = url;
+  });
 }

@@ -59,4 +59,51 @@ describe('AvatarCropModal', () => {
     expect(cropperProps.value?.zoom).toBe(2.5);
     void user; // userEvent imported elsewhere; suppress unused
   });
+
+  it('Übernehmen is disabled until onCropComplete fires', () => {
+    render(<AvatarCropModal file={makeFile()} onConfirm={vi.fn()} onCancel={vi.fn()} />);
+    const btn = screen.getByRole('button', { name: /übernehmen/i });
+    expect(btn).toBeDisabled();
+  });
+
+  it('Übernehmen calls onConfirm with a Blob after crop completes', async () => {
+    const user = userEvent.setup();
+    const onConfirm = vi.fn();
+
+    // Spy toBlob to deliver a predictable JPEG blob synchronously.
+    vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation(function (
+      this: HTMLCanvasElement,
+      cb,
+    ) {
+      cb(new Blob(['jpegbytes'], { type: 'image/jpeg' }));
+    });
+    // jsdom doesn't implement canvas 2D context — stub it so drawImage is a no-op.
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+      drawImage: vi.fn(),
+    } as unknown as CanvasRenderingContext2D);
+    // Skip the actual <img>-loading: stub loadImage indirection via Image mock.
+    Object.defineProperty(globalThis.Image.prototype, 'src', {
+      set() {
+        setTimeout(() => this.onload?.(new Event('load')), 0);
+      },
+    });
+
+    render(<AvatarCropModal file={makeFile()} onConfirm={onConfirm} onCancel={vi.fn()} />);
+
+    // Simulate the Cropper firing onCropComplete with pixel-area.
+    (cropperProps.value?.onCropComplete as ((...args: unknown[]) => void) | undefined)?.(
+      { x: 0, y: 0, width: 100, height: 100 },
+      { x: 10, y: 10, width: 200, height: 200 },
+    );
+
+    await user.click(screen.getByRole('button', { name: /übernehmen/i }));
+
+    // wait microtask for the canvas/blob async chain
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    const blob = onConfirm.mock.calls[0]![0] as Blob;
+    expect(blob).toBeInstanceOf(Blob);
+    expect(blob.type).toBe('image/jpeg');
+  });
 });
