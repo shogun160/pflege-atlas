@@ -121,4 +121,41 @@ describe('AvatarUploadWidget', () => {
     await user.click(resetBtn);
     expect(container.querySelector('input[name="avatar"]')).toHaveAttribute('value', '42');
   });
+
+  it('sends alt + purpose inside the _payload JSON field (Payload v3 multipart convention)', async () => {
+    const user = userEvent.setup();
+    const fakeJson = { doc: { id: 7, url: 'https://r2.example/a.jpg' } };
+    const fakeRes = {
+      ok: true,
+      json: async () => fakeJson,
+      text: async () => JSON.stringify(fakeJson),
+    } as unknown as Response;
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(fakeRes);
+
+    render(
+      <AvatarUploadWidget
+        currentAvatarUrl={null}
+        currentAvatarId={null}
+        displayName="Anna Musterfrau"
+        email="anna@test.local"
+      />,
+    );
+
+    const file = new File(['x'], 'new.png', { type: 'image/png' });
+    await user.upload(screen.getByLabelText(/profilbild auswählen/i), file);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [, init] = fetchSpy.mock.calls[0]!;
+    const fd = init?.body as FormData;
+    expect(fd).toBeInstanceOf(FormData);
+    // alt / purpose must NOT be top-level FormData entries — Payload v3 ignores them
+    expect(fd.get('alt')).toBeNull();
+    expect(fd.get('purpose')).toBeNull();
+    // they must arrive inside the _payload JSON string
+    const payloadJson = fd.get('_payload');
+    expect(typeof payloadJson).toBe('string');
+    const parsed = JSON.parse(payloadJson as string) as { alt: string; purpose: string };
+    expect(parsed.purpose).toBe('avatar');
+    expect(parsed.alt).toMatch(/Anna Musterfrau/);
+  });
 });

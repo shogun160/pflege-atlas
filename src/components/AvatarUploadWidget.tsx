@@ -41,8 +41,13 @@ export function AvatarUploadWidget(props: AvatarUploadWidgetProps) {
     try {
       const fd = new FormData();
       fd.append('file', file);
-      fd.append('alt', `Profilbild von ${props.displayName || props.email}`);
-      fd.append('purpose', 'avatar');
+      fd.append(
+        '_payload',
+        JSON.stringify({
+          alt: `Profilbild von ${props.displayName || props.email}`,
+          purpose: 'avatar',
+        }),
+      );
       const res = await fetch('/api/media', {
         method: 'POST',
         body: fd,
