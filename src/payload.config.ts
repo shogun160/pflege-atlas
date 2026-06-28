@@ -37,7 +37,15 @@ export default buildConfig({
           Component:
             'src/components/admin/EditorialDashboard.server.tsx#EditorialDashboardServer',
         },
+        articlesImport: {
+          Component:
+            'src/components/admin/BulkArticleImport.server.tsx#BulkArticleImportServer',
+          path: '/articles-import',
+        },
       },
+      afterNavLinks: [
+        'src/components/admin/BulkArticleImportNavLink.server.tsx#BulkArticleImportNavLink',
+      ],
     },
   },
   collections: [Users, Articles, Submissions, Media, AuditLogs],

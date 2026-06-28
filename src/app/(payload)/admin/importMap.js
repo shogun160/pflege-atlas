@@ -24,7 +24,9 @@ import { BoldFeatureClient as BoldFeatureClient_e70f5e05f09f93e00b997edb1ef0c864
 import { ItalicFeatureClient as ItalicFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { ClaimButtonField as ClaimButtonField_49846b40725412f3b61f2f8d2e4e2f53 } from 'src/components/admin/ClaimButtonField.server.tsx'
 import { SubmissionWorkflowField as SubmissionWorkflowField_11c0bfd5bf7cbaaf67d5769d8611cbb4 } from 'src/components/admin/SubmissionWorkflowField.tsx'
+import { BulkArticleImportNavLink as BulkArticleImportNavLink_38b86d3b797915405bf00e69ba49be6c } from 'src/components/admin/BulkArticleImportNavLink.server.tsx'
 import { EditorialDashboardServer as EditorialDashboardServer_dba2ab4c0ee2903fbd359ce1600d002d } from 'src/components/admin/EditorialDashboard.server.tsx'
+import { BulkArticleImportServer as BulkArticleImportServer_db65a47c8859ef7524227d8a331a68cc } from 'src/components/admin/BulkArticleImport.server.tsx'
 import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } from '@payloadcms/next/rsc'
 
 /** @type import('payload').ImportMap */
@@ -55,6 +57,8 @@ export const importMap = {
   "@payloadcms/richtext-lexical/client#ItalicFeatureClient": ItalicFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "src/components/admin/ClaimButtonField.server.tsx#ClaimButtonField": ClaimButtonField_49846b40725412f3b61f2f8d2e4e2f53,
   "src/components/admin/SubmissionWorkflowField.tsx#SubmissionWorkflowField": SubmissionWorkflowField_11c0bfd5bf7cbaaf67d5769d8611cbb4,
+  "src/components/admin/BulkArticleImportNavLink.server.tsx#BulkArticleImportNavLink": BulkArticleImportNavLink_38b86d3b797915405bf00e69ba49be6c,
   "src/components/admin/EditorialDashboard.server.tsx#EditorialDashboardServer": EditorialDashboardServer_dba2ab4c0ee2903fbd359ce1600d002d,
+  "src/components/admin/BulkArticleImport.server.tsx#BulkArticleImportServer": BulkArticleImportServer_db65a47c8859ef7524227d8a331a68cc,
   "@payloadcms/next/rsc#CollectionCards": CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1
 }
