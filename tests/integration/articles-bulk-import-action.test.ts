@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { getPayload } from 'payload';
 import config from '@/payload.config';
-import { parseFilesPure, runImportPure } from '@/components/admin/bulk-import-actions';
+import { parseFilesPure, runImportPure } from '@/components/admin/bulk-import-pure';
 import { createHash } from 'crypto';
 
 /** Minimal valid Lexical editor state accepted by Payload's RichText validator. */
@@ -165,7 +165,7 @@ describe('runImportPure', () => {
       limit: 10,
     });
     expect(audits.totalDocs).toBe(1);
-    const audit = audits.docs[0] as { metadata: { filename: string; articleId: number } };
+    const audit = audits.docs[0] as unknown as { metadata: { filename: string; articleId: number } };
     expect(audit.metadata.filename).toBe('a.md');
     expect(audit.metadata.articleId).toBe(results[0].articleId);
   });

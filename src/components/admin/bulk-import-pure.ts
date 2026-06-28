@@ -14,6 +14,7 @@ import type {
 
 export const MAX_FILES = 50;
 export const MAX_FILE_BYTES = 256 * 1024;
+export const TOO_LARGE_SENTINEL = '__TOO_LARGE__';
 
 export interface RawFile {
   filename: string;
@@ -47,7 +48,7 @@ export async function parseFilesPure(
   // First pass: parse + resolve slug
   const interim: Array<{ filename: string; content: string; parse: ParseResult; resolvedSlug: string }> = [];
   for (const file of files) {
-    if (file.content === '__TOO_LARGE__') {
+    if (file.content === TOO_LARGE_SENTINEL) {
       interim.push({
         filename: file.filename,
         content: '',
@@ -138,15 +139,20 @@ export async function runImportPure(
   }
   let userPool: KnownUser[] = [];
   if (candidateNames.size > 0) {
-    const usersRes = await payload.find({
-      collection: 'users',
-      where: { disabled: { equals: false } },
-      limit: 500,
-      depth: 0,
-    });
-    userPool = (usersRes.docs as Array<{ id: number; displayName?: string | null; email: string }>).map(
-      (u) => ({ id: u.id, displayName: u.displayName ?? null, email: u.email }),
-    );
+    try {
+      const usersRes = await payload.find({
+        collection: 'users',
+        where: { disabled: { equals: false } },
+        limit: 500,
+        depth: 0,
+      });
+      userPool = (usersRes.docs as Array<{ id: number; displayName?: string | null; email: string }>).map(
+        (u) => ({ id: u.id, displayName: u.displayName ?? null, email: u.email }),
+      );
+    } catch (err) {
+      console.error('[bulk-import] userPool fetch failed, author matching will return all-unknown', err);
+      // userPool stays empty — matchAuthors will emit author-unknown warnings for all names
+    }
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
@@ -199,6 +205,7 @@ export async function runImportPure(
       const created = await payload.create({
         collection: 'articles',
         data: data as never,
+        overrideAccess: true,
       });
 
       await writeAuditLog(payload, {

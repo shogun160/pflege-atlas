@@ -10,6 +10,7 @@ import {
   runImportPure,
   MAX_FILES,
   MAX_FILE_BYTES,
+  TOO_LARGE_SENTINEL,
   type RawFile,
 } from './bulk-import-pure';
 import type { ImportRow, ImportResultRow } from '@/lib/article-import/types';
@@ -57,7 +58,7 @@ async function readUploads(formData: FormData): Promise<RawFile[]> {
     }
     if (buf.byteLength > MAX_FILE_BYTES) {
       // Inject a synthetic invalid-row so the user sees it instead of an exception.
-      files.push({ filename: entry.name, content: '__TOO_LARGE__' });
+      files.push({ filename: entry.name, content: TOO_LARGE_SENTINEL });
       continue;
     }
     files.push({ filename: entry.name, content: buf.toString('utf8') });
@@ -70,7 +71,29 @@ async function readUploads(formData: FormData): Promise<RawFile[]> {
 export async function parseFilesAction(formData: FormData): Promise<ImportRow[]> {
   await assertPermission();
   const payload = await getPayloadClient();
-  const files = await readUploads(formData);
+  let files: RawFile[];
+  try {
+    files = await readUploads(formData);
+  } catch (err) {
+    // Surface upload-level errors as a single synthetic invalid row so
+    // the UI can show them in the same table.
+    const message = err instanceof Error ? err.message : String(err);
+    return [
+      {
+        filename: 'upload',
+        sourceHash: '',
+        status: 'invalid',
+        title: '',
+        resolvedSlug: '',
+        parseResult: {
+          ok: false,
+          issues: [
+            { code: 'file-too-large', severity: 'hard', message },
+          ],
+        },
+      },
+    ];
+  }
   return parseFilesPure(payload, files);
 }
 
