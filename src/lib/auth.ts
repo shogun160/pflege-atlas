@@ -126,9 +126,10 @@ export interface LoginResult {
   error?: string;
 }
 
-function redirectForRole(role: Role): string {
-  if (role === 'contributor') return '/mein-bereich';
-  return '/admin';
+function redirectForRole(_role: Role): string {
+  // Default-Landing nach Login/Reset/Invitation für alle Rollen.
+  // Admin/Editor/Reviewer haben den Admin-Eingang weiter im Header-Menü.
+  return '/mein-bereich';
 }
 
 export async function loginAction(

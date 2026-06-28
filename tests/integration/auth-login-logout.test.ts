@@ -15,7 +15,7 @@ describe('loginAction', () => {
     vi.resetModules();
   });
 
-  it('returns ok + redirect path for editor', async () => {
+  it('returns ok + /mein-bereich redirect for editor', async () => {
     const editor = await createUserFixture(payload, 'editor');
     const cookieSet = vi.fn();
     vi.doMock('next/headers', () => ({
@@ -24,7 +24,7 @@ describe('loginAction', () => {
     const { loginAction } = await import('@/lib/auth');
     const result = await loginAction(editor.email, editor.password);
     expect(result.ok).toBe(true);
-    expect(result.redirectTo).toBe('/admin');
+    expect(result.redirectTo).toBe('/mein-bereich');
     expect(cookieSet).toHaveBeenCalled();
     vi.doUnmock('next/headers');
   });

@@ -10,9 +10,7 @@ export default async function LoginPage({
   const params = await searchParams;
   const session = await getSession();
   if (session) {
-    redirect(
-      params.next || (session.role === 'contributor' ? '/mein-bereich' : '/admin'),
-    );
+    redirect(params.next || '/mein-bereich');
   }
   return (
     <main className="mx-auto max-w-md p-8">
