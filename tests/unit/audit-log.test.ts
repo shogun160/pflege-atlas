@@ -156,11 +156,12 @@ describe('audit-log helper', () => {
   });
 
   describe('AUDIT_EVENT_TYPES', () => {
-    it('exports exactly 12 event types', () => {
-      expect(AUDIT_EVENT_TYPES).toHaveLength(12);
+    it('exports exactly 13 event types', () => {
+      expect(AUDIT_EVENT_TYPES).toHaveLength(13);
       expect(AUDIT_EVENT_TYPES).toContain('login.success');
       expect(AUDIT_EVENT_TYPES).toContain('account.erasure.runbook');
       expect(AUDIT_EVENT_TYPES).toContain('audit.cleanup.run');
+      expect(AUDIT_EVENT_TYPES).toContain('article.bulk_import');
     });
   });
 });

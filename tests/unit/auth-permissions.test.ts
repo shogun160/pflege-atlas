@@ -60,4 +60,19 @@ describe('auth-permissions matrix', () => {
     expect(hasRolePermission('contributor', 'createSubmission', 'submissions')).toBe(true);
     expect(hasRolePermission('contributor', 'readAllSubmissions', 'submissions')).toBe(false);
   });
+
+  describe('bulkImport permission', () => {
+    it('allows admin', () => {
+      expect(hasRolePermission('admin', 'bulkImport', 'articles')).toBe(true);
+    });
+    it('allows editor', () => {
+      expect(hasRolePermission('editor', 'bulkImport', 'articles')).toBe(true);
+    });
+    it('denies reviewer', () => {
+      expect(hasRolePermission('reviewer', 'bulkImport', 'articles')).toBe(false);
+    });
+    it('denies contributor', () => {
+      expect(hasRolePermission('contributor', 'bulkImport', 'articles')).toBe(false);
+    });
+  });
 });
