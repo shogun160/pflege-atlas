@@ -47,6 +47,19 @@ export function AvatarCropModal({ file, onConfirm: _onConfirm, onCancel }: Avata
             onCropComplete={(_, p) => setPixels(p)}
           />
         </div>
+        <label className="mt-4 block text-sm">
+          Zoom
+          <input
+            type="range"
+            min={1}
+            max={3}
+            step={0.05}
+            value={zoom}
+            onChange={(e) => setZoom(Number(e.target.value))}
+            className="mt-1 w-full"
+            aria-label="Zoom"
+          />
+        </label>
         <div className="mt-4 flex justify-end gap-2">
           <button
             type="button"

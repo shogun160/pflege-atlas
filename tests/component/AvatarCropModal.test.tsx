@@ -47,4 +47,16 @@ describe('AvatarCropModal', () => {
     fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
+
+  it('Zoom-Slider has range 1-3 and updates Cropper zoom prop', async () => {
+    const user = userEvent.setup();
+    render(<AvatarCropModal file={makeFile()} onConfirm={vi.fn()} onCancel={vi.fn()} />);
+    const slider = screen.getByLabelText('Zoom') as HTMLInputElement;
+    expect(slider.min).toBe('1');
+    expect(slider.max).toBe('3');
+    expect(cropperProps.value?.zoom).toBe(1);
+    fireEvent.change(slider, { target: { value: '2.5' } });
+    expect(cropperProps.value?.zoom).toBe(2.5);
+    void user; // userEvent imported elsewhere; suppress unused
+  });
 });
