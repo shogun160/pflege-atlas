@@ -271,4 +271,21 @@ describe('AvatarUploadWidget', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(fileInput.value).toBe('');
   });
+
+  it('clicking the avatar preview triggers the file picker', async () => {
+    const user = userEvent.setup();
+    render(
+      <AvatarUploadWidget
+        currentAvatarUrl={null}
+        currentAvatarId={null}
+        displayName="Anna"
+        email="anna@test.local"
+      />,
+    );
+    const fileInput = screen.getByLabelText(/profilbild auswählen/i) as HTMLInputElement;
+    const clickSpy = vi.spyOn(fileInput, 'click');
+    const avatarBtn = screen.getByRole('button', { name: /profilbild ändern/i });
+    await user.click(avatarBtn);
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+  });
 });

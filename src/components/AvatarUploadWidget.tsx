@@ -118,7 +118,15 @@ export function AvatarUploadWidget(props: AvatarUploadWidgetProps) {
     <div className="space-y-3">
       <label className="block text-sm font-medium">Profilbild</label>
       <div className="flex items-start gap-4">
-        {preview}
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          disabled={uploading}
+          aria-label="Profilbild ändern"
+          className="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+        >
+          {preview}
+        </button>
         <div className="space-y-2">
           <input
             ref={fileRef}
