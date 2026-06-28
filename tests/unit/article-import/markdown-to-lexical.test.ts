@@ -89,4 +89,21 @@ describe('markdownToLexical', () => {
     const paragraphs = children.filter((c) => c.type === 'paragraph');
     expect(paragraphs.length).toBeGreaterThanOrEqual(2);
   });
+
+  it('silently drops h1/h2 and h5/h6 headings (out of supported range)', () => {
+    const md = `# Top\n\n## Subtitle\n\nPara.\n\n##### Tiny\n\n###### Tinier`;
+    const result = markdownToLexical(md);
+    const children = (result as { root: { children: Array<{ type: string; tag?: string; children?: Array<{ text?: string }> }> } })
+      .root.children;
+    // Only the paragraph should survive
+    const paragraphs = children.filter((c) => c.type === 'paragraph');
+    expect(paragraphs).toHaveLength(1);
+    const headings = children.filter((c) => c.type === 'heading');
+    expect(headings).toHaveLength(0);
+    // None of the survivors should contain literal `#` characters
+    for (const node of children) {
+      const text = node.children?.[0]?.text ?? '';
+      expect(text.startsWith('#')).toBe(false);
+    }
+  });
 });

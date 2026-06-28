@@ -11,10 +11,6 @@ const FORMAT_ITALIC = 2;
 
 type LexicalNode = Record<string, unknown>;
 
-interface BlockBuilder {
-  build(lines: string[], start: number): { node: LexicalNode | null; consumed: number };
-}
-
 function makeText(text: string, format: number): LexicalNode {
   return {
     type: 'text',
@@ -192,6 +188,8 @@ function parseInlineWithState(text: string, state: InlineState): LexicalNode[] {
 // --- Block parser ---------------------------------------------------------
 
 const HEADING_RE = /^(#{3,4})\s+(.+)$/;
+const UNSUPPORTED_HEADING_RE = /^#{1,2}\s+/;       // h1, h2 — likely document title; drop
+const HIGH_LEVEL_HEADING_RE = /^#{5,6}\s+/;        // h5, h6 — out of our supported range; drop
 const UL_RE = /^[-*]\s+(.+)$/;
 const OL_RE = /^\d+\.\s+(.+)$/;
 const QUOTE_RE = /^>\s?(.*)$/;
@@ -263,6 +261,10 @@ export function markdownToLexical(input: string): { root: LexicalNode } {
       continue;
     }
     if (isUnsupported(line)) {
+      i++;
+      continue;
+    }
+    if (UNSUPPORTED_HEADING_RE.test(line) || HIGH_LEVEL_HEADING_RE.test(line)) {
       i++;
       continue;
     }
